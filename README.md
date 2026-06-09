@@ -1,41 +1,50 @@
-# R34Video 批量下载
+# R34Video Watch Archive Downloader
 
-用于 `rule34video.com` 的 Tampermonkey 油猴脚本，支持批量采集、导出和下载视频。
+Tampermonkey userscript for archiving watched videos and batch downloading videos from `rule34video.com`.
 
-当前版本：**v3.8**。
+Current release: **v4.1**.
 
-英文版说明见 [README_EN.md](README_EN.md)。
+Chinese documentation: [README_ZH.md](README_ZH.md).
 
-## 安装
+## Install
 
-1. 安装 Tampermonkey 或其他用户脚本管理器。
-2. 打开 `r34video-bulk-downloader.user.js`。
-3. 新建用户脚本并粘贴文件内容，或通过 GitHub raw 地址安装。
-4. 打开支持的 `rule34video.com` 页面使用。
+1. Install Tampermonkey or another userscript manager.
+2. Open `r34video-watch-archive-downloader.user.js`.
+3. Create a new userscript and paste the file contents, or install it from the raw GitHub URL.
+4. Open a supported `rule34video.com` page.
 
-## 功能
+## Features
 
-- 支持搜索页、上传者页、用户页、收藏页等列表页采集。
-- 支持真实翻页后的持久续跑。
-- 支持 AJAX / 伪跳转视频页监听，并自动入队已点开的视频。
-- 解析视频直链和可用清晰度。
-- 清晰度可选：最佳、8K、4K、1080p、720p、480p、360p。
-- 浏览器下载模式会先保存元信息 JSON，再提交视频下载。
-- 可导出直链 TXT 和元信息 JSONL。
-- 可导出 YT-DLP 命令 TXT 和元信息 JSONL。
-- 文件名可配置 ID、标题、原文件名三部分。
-- 悬浮面板显示队列、解析、提交和下载统计。
+- Primary English userscript with no Chinese UI text.
+- Separate Chinese userscript for Chinese UI users.
+- Automatically queue watched videos from real pages, AJAX pages, and pseudo-navigation.
+- Optional auto-download for newly queued watched videos.
+- Collect videos from search, uploader, user, favorites, and other list pages.
+- Continue multi-page collection across real page reloads.
+- Parse direct video URLs and available quality variants.
+- Select quality: best, 8K, 4K, 1080p, 720p, 480p, or 360p.
+- Browser download mode saves metadata JSON before submitting the video download.
+- Export direct-link TXT and metadata JSONL.
+- Export YT-DLP command TXT and metadata JSONL.
+- Configurable filename parts: ID, title, and original filename.
+- Floating panel with queue, parse, submit, and download statistics.
 
-## 注意
+## Notes
 
-- 浏览器下载由 `GM_download` 处理。停止下载队列只能阻止继续提交新任务，已经提交给浏览器或脚本管理器的下载可能仍会继续。
-- `Old/`、`Reference/`、`Test/` 是本地资料目录，不上传到 GitHub。
-- 根目录 `Agent.md` 是给智能体看的项目说明，`README.md` 是给人类看的说明。
+- Browser downloads are handled by `GM_download`. Stopping the queue prevents new downloads from being submitted, but downloads already submitted to the browser or userscript manager may continue.
+- `Old/`, `Reference/`, and `Test/` are local material folders and are not uploaded to GitHub.
+- Root-level `Agent.md` is for AI agents. `README.md` is for human readers.
 
-## 主文件
+## Script Files
 
-正式脚本文件：
+English primary version:
 
 ```text
-r34video-bulk-downloader.user.js
+r34video-watch-archive-downloader.user.js
+```
+
+Chinese version:
+
+```text
+r34video-watch-archive-downloader.zh.user.js
 ```

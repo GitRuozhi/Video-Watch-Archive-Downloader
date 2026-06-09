@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         R34Video批量下载
+// @name         R34Video 观看归档下载+自动批量下载
 // @namespace    https://github.com/GitRuozhi
 // @license      MIT
-// @version      3.8
-// @description  批量下载、自动下载、自动跳页、保存元信息，支持YT-dlp，并行解析，监听子页面，跨标签页同步设置，循环采集与href/data页数统计
+// @version      4.1
+// @description  自动记录已看视频，支持批量采集、元信息保存、浏览器下载、直链导出和 YT-DLP 命令导出。
 // @author       GitRuozhi
 // @match        https://rule34video.com/*
 // @grant        GM_xmlhttpRequest
