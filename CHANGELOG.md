@@ -1,45 +1,47 @@
-# Changelog
+# 更新日志
+
+英文版见 [CHANGELOG_EN.md](CHANGELOG_EN.md)。
 
 ## v3.8
 
-- Improved pagination counting by reading page numbers from `href` and `data` attributes.
-- Kept the v3.7 collected-page display behavior.
-- Current canonical release used for `r34video-bulk-downloader.user.js`.
+- 通过 `href` 和 `data` 属性读取分页页码，改进总页数统计。
+- 保留 v3.7 的已采集页数显示。
+- 作为当前正式版发布到 `r34video-bulk-downloader.user.js`。
 
 ## v3.7
 
-- Added advanced-panel page progress display as `已采集 x/y 页`.
-- Counted collected pages from successful page collection progress.
+- 在高级选项中增加 `已采集 x/y 页` 显示。
+- 根据成功采集的页面更新已采集页数。
 
 ## v3.6
 
-- Consolidated batch download, auto-download, auto-page collection, metadata save, YT-DLP export, parallel parsing, pseudo-page listeners, setting sync, loop collection, and download statistics.
+- 整合批量下载、自动下载、自动跳页、元信息保存、YT-DLP 导出、并行解析、子页面监听、设置同步、循环采集和下载统计。
 
 ## v3.5
 
-- Added loop collection behavior: return to the first page after the last page and stop when repeated items are detected.
-- Updated top statistics to include submitted and downloaded counts.
-- Unified panel button styling.
+- 增加循环采集：到最后一页后回到第一页，检测重复项目后停止。
+- 顶部统计增加已提交和已下载计数。
+- 统一面板按钮样式。
 
 ## v3.4
 
-- Changed browser download order to save `.meta.json` before video.
-- Added `GM_addValueChangeListener` for cross-tab settings sync.
-- Split persisted queue state from synchronized settings.
+- 浏览器下载顺序改为先保存 `.meta.json`，再提交视频下载。
+- 增加 `GM_addValueChangeListener`，支持跨标签页同步设置。
+- 将队列持久化和设置同步拆分为两套存储。
 
 ## v3.3
 
-- Added listeners for AJAX / pseudo-navigation video pages.
-- Hooked click capture, DOM mutations, history changes, popstate, hashchange, pageshow, and URL polling.
-- Added delayed watched-page checks to avoid duplicate queueing.
+- 增加 AJAX / 伪跳转视频页监听。
+- 监听点击、DOM 变化、history 变化、前进后退、hash、pageshow 和 URL 轮询。
+- 增加延迟检查，避免重复入队。
 
 ## v3.2
 
-- Debounced persistent state writes.
-- Added parallel parsing controls.
-- Added automatic download for newly auto-queued watched videos.
-- Cached UI nodes and reduced repeated page parsing.
+- 对持久化写入做防抖。
+- 增加并行解析设置。
+- 增加自动入队后自动下载当前视频。
+- 缓存 UI 节点并减少重复解析。
 
 ## v3.1
 
-- Initial expanded version with batch collection, auto paging, direct video parsing, browser download, direct-link export, YT-DLP command export, metadata JSON, and watched-video auto-queue.
+- 初始扩展版：批量采集、自动翻页、视频直链解析、浏览器下载、直链导出、YT-DLP 命令导出、元信息 JSON 和已看视频自动入队。

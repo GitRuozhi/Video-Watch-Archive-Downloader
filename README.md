@@ -1,39 +1,40 @@
-# R34Video Bulk Downloader
+# R34Video 批量下载
 
-Tampermonkey userscript for collecting, exporting, and downloading videos from `rule34video.com`.
+用于 `rule34video.com` 的 Tampermonkey 油猴脚本，支持批量采集、导出和下载视频。
 
-Current release: **v3.8**.
+当前版本：**v3.8**。
 
-## Install
+英文版说明见 [README_EN.md](README_EN.md)。
 
-1. Install Tampermonkey or another userscript manager.
-2. Open `r34video-bulk-downloader.user.js`.
-3. Create a new userscript and paste the file contents, or install it from the raw GitHub URL.
-4. Open a supported `rule34video.com` page.
+## 安装
 
-## Features
+1. 安装 Tampermonkey 或其他用户脚本管理器。
+2. 打开 `r34video-bulk-downloader.user.js`。
+3. 新建用户脚本并粘贴文件内容，或通过 GitHub raw 地址安装。
+4. 打开支持的 `rule34video.com` 页面使用。
 
-- Collect videos from search, uploader, user, favorites, and other list pages.
-- Continue multi-page collection across real page reloads.
-- Detect AJAX / pseudo-navigation video pages and queue watched videos.
-- Parse direct video URLs and available quality variants.
-- Select quality: best, 8K, 4K, 1080p, 720p, 480p, or 360p.
-- Browser download mode with metadata JSON saved before video download.
-- Export direct-link TXT and metadata JSONL.
-- Export YT-DLP command TXT and metadata JSONL.
-- Configurable filename parts: ID, title, and original filename.
-- Compact floating panel with queue, parse, submit, and download statistics.
+## 功能
 
-## Notes
+- 支持搜索页、上传者页、用户页、收藏页等列表页采集。
+- 支持真实翻页后的持久续跑。
+- 支持 AJAX / 伪跳转视频页监听，并自动入队已点开的视频。
+- 解析视频直链和可用清晰度。
+- 清晰度可选：最佳、8K、4K、1080p、720p、480p、360p。
+- 浏览器下载模式会先保存元信息 JSON，再提交视频下载。
+- 可导出直链 TXT 和元信息 JSONL。
+- 可导出 YT-DLP 命令 TXT 和元信息 JSONL。
+- 文件名可配置 ID、标题、原文件名三部分。
+- 悬浮面板显示队列、解析、提交和下载统计。
 
-- Browser downloads are handled by `GM_download`. Stopping the queue prevents new downloads from being submitted, but already submitted browser/Tampermonkey downloads may continue.
-- Large local test downloads are intentionally ignored through `.gitignore`.
-- Historical generated versions are archived under `OLD/`.
-- Reference scripts remain under `参考/` for local comparison.
+## 注意
 
-## Main File
+- 浏览器下载由 `GM_download` 处理。停止下载队列只能阻止继续提交新任务，已经提交给浏览器或脚本管理器的下载可能仍会继续。
+- `Old/`、`Reference/`、`Test/` 是本地资料目录，不上传到 GitHub。
+- 根目录 `Agent.md` 是给智能体看的项目说明，`README.md` 是给人类看的说明。
 
-Use this file as the canonical script:
+## 主文件
+
+正式脚本文件：
 
 ```text
 r34video-bulk-downloader.user.js
