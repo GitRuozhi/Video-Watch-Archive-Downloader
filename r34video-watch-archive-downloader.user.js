@@ -2,7 +2,7 @@
 // @name         R34Video Watch Archive Downloader
 // @namespace    https://github.com/GitRuozhi
 // @license      MIT
-// @version      4.1
+// @version      4.2
 // @description  Automatically archives watched videos and supports batch collection, metadata saving, browser downloads, direct-link export, and YT-DLP command export.
 // @author       GitRuozhi
 // @match        https://rule34video.com/*
@@ -324,47 +324,47 @@
     panel.id = PANEL_ID;
     panel.innerHTML = `
       <div class="r34v-head">
-        <span class="r34v-stat">Captured<strong id="r34v-captured">0</strong> </span>
-        <span class="r34v-stat">Parsed<strong id="r34v-resolved">0</strong> </span>
-        <span class="r34v-stat">Submitted<strong id="r34v-submitted">0</strong> </span>
-        <span class="r34v-stat">Downloaded<strong id="r34v-downloaded">0</strong> </span>
+        <span class="r34v-stat" title="Captured">Cap<strong id="r34v-captured">0</strong> </span>
+        <span class="r34v-stat" title="Parsed">Parse<strong id="r34v-resolved">0</strong> </span>
+        <span class="r34v-stat" title="Submitted">Sent<strong id="r34v-submitted">0</strong> </span>
+        <span class="r34v-stat" title="Downloaded">Done<strong id="r34v-downloaded">0</strong> </span>
         <span class="r34v-spacer"></span>
         <button type="button" id="r34v-toggle" class="r34v-toggle" title="Expand / collapse">_</button>
       </div>
       <div class="r34v-body">
         <div class="r34v-row">
-        <button type="button" id="r34v-clear" class="r34v-panel-button">Clear queue</button>
-          <button type="button" id="r34v-collect-current" class="r34v-panel-button">Collect page</button>
-          <button type="button" id="r34v-collect-toggle" class="r34v-panel-button">Collect pages</button>
+        <button type="button" id="r34v-clear" class="r34v-panel-button" title="Clear queue">Clear</button>
+          <button type="button" id="r34v-collect-current" class="r34v-panel-button" title="Collect current page">Page</button>
+          <button type="button" id="r34v-collect-toggle" class="r34v-panel-button" title="Collect pages">Pages</button>
         </div>
         <div class="r34v-row">
-          <button type="button" id="r34v-download" class="r34v-panel-button">Start download</button>
-          <button type="button" id="r34v-advanced-toggle" class="r34v-panel-button">Advanced</button>
+          <button type="button" id="r34v-download" class="r34v-panel-button" title="Start download">Start</button>
+          <button type="button" id="r34v-advanced-toggle" class="r34v-panel-button" title="Advanced options">More</button>
         </div>
         <div class="r34v-advanced" id="r34v-advanced">
 
 
         <div class="r34v-row">
-            <span>Collected <strong id="r34v-pages-collected">0</strong>/<strong id="r34v-total-pages">0</strong> pages</span>
+            <span title="Collected pages">Collected <strong id="r34v-pages-collected">0</strong>/<strong id="r34v-total-pages">0</strong> pages</span>
          </div>
           <div class="r34v-row">
-            <label><input type="checkbox" id="r34v-auto-queue">Auto-queue watched videos</label>
-            <label><input type="checkbox" id="r34v-auto-download">Auto-download queued watched video</label>
+            <label title="Auto-queue watched videos"><input type="checkbox" id="r34v-auto-queue">Auto queue</label>
+            <label title="Auto-download queued watched video"><input type="checkbox" id="r34v-auto-download">Auto DL</label>
           </div>
 
           <div class="r34v-row">
-            <label>Parse concurrency
+            <label title="Parse concurrency">Threads
               <input id="r34v-resolve-concurrency" class="r34v-concurrency" type="number" min="1" max="8" step="1">
             </label>
-            <span>Pages per run</span>
+            <span title="Pages per run">Pages</span>
             <input id="r34v-max-pages" class="r34v-max-pages" type="number" min="1" max="999" step="1">
             <span></span>
           </div>
           <div class="r34v-row">
-            <label>Download mode
+            <label title="Download mode">Mode
               <select id="r34v-export-mode" class="r34v-download-mode">
                 <option value="direct">Browser</option>
-                <option value="links">Direct-link TXT</option>
+                <option value="links">Links TXT</option>
                 <option value="ytdlp">YT-DLP</option>
               </select>
             </label>
@@ -384,7 +384,7 @@
             <span>Filename:</span>
             <label><input type="checkbox" id="r34v-keep-id">Id</label>
             <label><input type="checkbox" id="r34v-keep-title">Title</label>
-            <label><input type="checkbox" id="r34v-keep-original">Original filename</label>
+            <label title="Original filename"><input type="checkbox" id="r34v-keep-original">Original</label>
           </div>
           <div class="r34v-log" id="r34v-log"></div>
         </div>
@@ -1861,11 +1861,11 @@
     ui.panel.classList.toggle('r34v-advanced-open', Boolean(state.settings.advancedOpen));
     uiById('r34v-collect-current').disabled = state.fetching || state.collection.active;
     uiById('r34v-collect-toggle').disabled = state.fetching && !state.collection.active;
-    uiById('r34v-collect-toggle').textContent = state.collection.active ? 'Stop collection' : 'Collect pages';
+    uiById('r34v-collect-toggle').textContent = state.collection.active ? 'Stop' : 'Pages';
     uiById('r34v-clear').disabled = state.fetching || state.downloading || state.collection.active;
     uiById('r34v-download').disabled = !state.downloading && !state.tasks.some((task) => task.videoUrl);
-    uiById('r34v-download').textContent = state.downloading ? 'Stop download' : 'Start download';
-    uiById('r34v-advanced-toggle').textContent = state.settings.advancedOpen ? 'Collapse' : 'Advanced';
+    uiById('r34v-download').textContent = state.downloading ? 'Stop' : 'Start';
+    uiById('r34v-advanced-toggle').textContent = state.settings.advancedOpen ? 'Less' : 'More';
   }
 
   function getParseStats() {

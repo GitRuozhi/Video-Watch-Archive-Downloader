@@ -2,7 +2,7 @@
 
 Tampermonkey userscript for archiving watched videos and batch downloading videos from `rule34video.com`.
 
-Current release: **v4.1**.
+Current release: **v4.2**.
 
 Chinese documentation: [README_ZH.md](README_ZH.md).
 
@@ -16,6 +16,7 @@ Chinese documentation: [README_ZH.md](README_ZH.md).
 ## Features
 
 - Primary English userscript with no Chinese UI text.
+- Compact English UI labels for the narrow floating panel.
 - Separate Chinese userscript for Chinese UI users.
 - Automatically queue watched videos from real pages, AJAX pages, and pseudo-navigation.
 - Optional auto-download for newly queued watched videos.

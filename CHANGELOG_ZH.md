@@ -2,6 +2,12 @@
 
 英文主更新日志见 [CHANGELOG.md](CHANGELOG.md)。
 
+## v4.2
+
+- 缩短英文界面标签，避免小面板被英文长文本撑宽。
+- 给英文短标签控件补充悬停提示。
+- 英文和中文两个脚本版本号同步更新到 4.2。
+
 ## v4.1
 
 - 项目改名为 `R34Video Watch Archive Downloader`。

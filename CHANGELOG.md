@@ -2,6 +2,12 @@
 
 Chinese changelog: [CHANGELOG_ZH.md](CHANGELOG_ZH.md).
 
+## v4.2
+
+- Shortened English UI labels to fit the compact floating panel.
+- Added hover titles for shortened English controls.
+- Updated both English and Chinese userscript versions to 4.2.
+
 ## v4.1
 
 - Renamed the project to `R34Video Watch Archive Downloader`.

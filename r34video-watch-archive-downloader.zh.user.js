@@ -2,7 +2,7 @@
 // @name         R34Video 观看归档下载+自动批量下载
 // @namespace    https://github.com/GitRuozhi
 // @license      MIT
-// @version      4.1
+// @version      4.2
 // @description  自动记录已看视频，支持批量采集、元信息保存、浏览器下载、直链导出和 YT-DLP 命令导出。
 // @author       GitRuozhi
 // @match        https://rule34video.com/*
