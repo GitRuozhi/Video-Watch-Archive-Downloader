@@ -2,8 +2,8 @@
 // @name         R34Video批量下载
 // @namespace    https://github.com/GitRuozhi
 // @license      MIT
-// @version      3.8
-// @description  批量下载、自动下载、自动跳页、保存元信息，支持YT-dlp，并行解析，监听子页面，跨标签页同步设置，循环采集与href/data页数统计
+// @version      3.5
+// @description  批量下载、自动下载、自动跳页、保存元信息，支持YT-dlp，并行解析，监听子页面，跨标签页同步设置，循环采集与下载统计
 // @author       GitRuozhi
 // @match        https://rule34video.com/*
 // @grant        GM_xmlhttpRequest
@@ -74,8 +74,6 @@
     settings: { ...DEFAULT_SETTINGS },
     stats: {
       currentPage: 1,
-      pagesCollected: 0,
-      totalPages: 0,
       captured: 0,
       success: 0,
       failed: 0,
@@ -273,7 +271,7 @@
     }
     #${PANEL_ID} .r34v-max-pages,
     #${PANEL_ID} .r34v-concurrency {
-      width: 25px;
+      width: 48px;
       text-align: center;
     }
     #${PANEL_ID} .r34v-log {
@@ -287,10 +285,10 @@
       font-family: Arial, Helvetica, sans-serif;
     }
     #${PANEL_ID} .r34v-download-mode {
-      width: 80px;
+      width: 96px;
     }
     #${PANEL_ID} .r34v-quality {
-      width: 64px;
+      width: 82px;
     }
   `;
 
@@ -324,10 +322,10 @@
     panel.id = PANEL_ID;
     panel.innerHTML = `
       <div class="r34v-head">
-        <span class="r34v-stat">捕获<strong id="r34v-captured">0</strong>　</span>
-        <span class="r34v-stat">解析<strong id="r34v-resolved">0</strong>　</span>
-        <span class="r34v-stat">提交<strong id="r34v-submitted">0</strong>　</span>
-        <span class="r34v-stat">下载<strong id="r34v-downloaded">0</strong>　</span>
+        <span class="r34v-stat">已捕获 <strong id="r34v-captured">0</strong></span>
+        <span class="r34v-stat">已解析 <strong id="r34v-resolved">0</strong></span>
+        <span class="r34v-stat">已提交 <strong id="r34v-submitted">0</strong></span>
+        <span class="r34v-stat">已下载 <strong id="r34v-downloaded">0</strong></span>
         <span class="r34v-spacer"></span>
         <button type="button" id="r34v-toggle" class="r34v-toggle" title="展开/收缩">_</button>
       </div>
@@ -342,23 +340,19 @@
           <button type="button" id="r34v-advanced-toggle" class="r34v-panel-button">高级选项</button>
         </div>
         <div class="r34v-advanced" id="r34v-advanced">
-
-
-        <div class="r34v-row">
-            <span>已采集 <strong id="r34v-pages-collected">0</strong>/<strong id="r34v-total-pages">0</strong> 页</span>
-         </div>
           <div class="r34v-row">
             <label><input type="checkbox" id="r34v-auto-queue">已看视频自动入队</label>
             <label><input type="checkbox" id="r34v-auto-download">入队自动下载</label>
           </div>
 
           <div class="r34v-row">
-            <label>下载并行
-              <input id="r34v-resolve-concurrency" class="r34v-concurrency" type="number" min="1" max="8" step="1">
+            <label>并行
+              <input id="r34v-resolve-concurrency" class="r34v-concurrency" type="number" min="1" max="8" step="1">x
             </label>
-            <span>一次性采集页数</span>
+            <span>已采集 <strong id="r34v-pages-collected">0</strong> 页</span>
+            <span>最多</span>
             <input id="r34v-max-pages" class="r34v-max-pages" type="number" min="1" max="999" step="1">
-            <span></span>
+            <span>页</span>
           </div>
           <div class="r34v-row">
             <label>下载方式
@@ -421,7 +415,6 @@
       'r34v-auto-download',
       'r34v-resolve-concurrency',
       'r34v-pages-collected',
-      'r34v-total-pages',
       'r34v-max-pages',
       'r34v-export-mode',
       'r34v-quality',
@@ -769,8 +762,6 @@
     state.collection.checkDuplicatesAfterWrap = false;
     state.collection.wrapCount = 0;
     state.stats.currentPage = 1;
-    state.stats.pagesCollected = 0;
-    state.stats.totalPages = totalPageNumber(document);
     persistState();
     await collectCurrentThenAdvance(false);
   }
@@ -890,7 +881,6 @@
       }
 
       await resolvePendingTasks();
-      markPageCollected();
       updateUi('Current page collected.');
     } catch (error) {
       result.failed = true;
@@ -1367,165 +1357,8 @@
 
   function currentPageNumber(doc) {
     const active = doc.querySelector('[id*="pagination"] .active, .pagination .active, .page .active, .paging .active');
-    if (!active) return 0;
-
-    const activeLink = active.matches && active.matches('a') ? active : active.querySelector && active.querySelector('a');
-    if (activeLink) {
-      const fromData = pageNumberFromDataParameters(activeLink.getAttribute('data-parameters'));
-      if (fromData > 0) return fromData;
-
-      const fromHref = pageNumberFromHref(activeLink.getAttribute('href'));
-      if (fromHref > 0) return fromHref;
-    }
-
-    const value = Number(normalizeWhitespace(active.textContent));
-    return Number.isFinite(value) && value > 0 ? value : 0;
-  }
-
-  function totalPageNumber(doc) {
-    const numbers = paginationPageNumbers(doc);
-    const current = currentPageNumber(doc);
-    if (current > 0) numbers.push(current);
-
-    const text = normalizeWhitespace(Array.from(doc.querySelectorAll('[id*="pagination"], .pagination, .page, .paging'))
-      .map((node) => node.textContent)
-      .join(' '));
-    const totalMatch = text.match(/(?:of|共|\/|total)\s*(\d{1,6})(?:\s*页|\s*pages?)?/i)
-      || text.match(/(?:page|第)\s*\d{1,6}\s*(?:of|\/|共)\s*(\d{1,6})/i);
-    if (totalMatch) numbers.push(Number(totalMatch[1]));
-
-    const max = numbers.filter((value) => Number.isFinite(value) && value > 0).sort((a, b) => b - a)[0] || 0;
-    if (max > 0) return max;
-
-    if (!isVideoPage(location.href) && extractPostUrls(doc, location.href).length > 0) return 1;
-    return 0;
-  }
-
-  function paginationPageNumbers(doc) {
-    const roots = paginationRoots(doc);
-    const numbers = [];
-
-    roots.forEach((root) => {
-      root.querySelectorAll('a, span, li, strong, em, b').forEach((node) => {
-        const text = normalizeWhitespace(node.textContent);
-        if (/^\d{1,6}$/.test(text)) numbers.push(Number(text));
-
-        const dataParams = node.getAttribute && node.getAttribute('data-parameters');
-        const dataNumber = pageNumberFromDataParameters(dataParams);
-        if (dataNumber > 0) numbers.push(dataNumber);
-
-        const href = node.getAttribute && node.getAttribute('href');
-        const hrefNumber = pageNumberFromHref(href);
-        if (hrefNumber > 0) numbers.push(hrefNumber);
-      });
-    });
-
-    return numbers;
-  }
-
-  function paginationRoots(doc) {
-    const roots = Array.from(doc.querySelectorAll('[id*="pagination"], .pagination, .page, .paging'));
-    return roots.length ? roots : [];
-  }
-
-  function pageNumberFromDataParameters(value) {
-    const text = String(value || '');
-    if (!text) return 0;
-
-    const patterns = [
-      /(?:^|[;,&])from_videos\s*:\s*0*(\d{1,6})(?=$|[;,&])/i,
-      /(?:^|[;,&])from_albums\s*:\s*0*(\d{1,6})(?=$|[;,&])/i,
-      /(?:^|[;,&])from\s*:\s*0*(\d{1,6})(?=$|[;,&])/i,
-      /(?:^|[;,&])page\s*:\s*0*(\d{1,6})(?=$|[;,&])/i,
-      /(?:^|[;,&])p\s*:\s*0*(\d{1,6})(?=$|[;,&])/i,
-    ];
-
-    for (const pattern of patterns) {
-      const match = text.match(pattern);
-      if (!match) continue;
-
-      const number = Number(match[1]);
-      if (Number.isFinite(number) && number > 0) return number;
-    }
-
-    return 0;
-  }
-
-  function pageNumberFromHref(href) {
-    if (!href) return 0;
-    try {
-      const parsed = new URL(href, location.href);
-
-      const pageParamKeys = ['page', 'p', 'pg'];
-      for (const key of pageParamKeys) {
-        const value = parsed.searchParams.get(key);
-        if (/^\d{1,6}$/.test(value || '')) return Number(value);
-      }
-
-      const dataParamKeys = ['from_videos', 'from_albums', 'from'];
-      for (const key of dataParamKeys) {
-        const value = parsed.searchParams.get(key);
-        if (/^\d{1,6}$/.test(value || '')) return Number(value);
-      }
-
-      const explicitPathMatch = parsed.pathname.match(/(?:\/page\/|\/p\/)(\d{1,6})(?:\/|$)/i);
-      if (explicitPathMatch) return Number(explicitPathMatch[1]);
-
-      if (isNonPaginationProfileUrl(parsed)) return 0;
-
-      const trailingMatch = parsed.pathname.match(/\/(\d{1,6})\/?$/);
-      if (!trailingMatch) return 0;
-
-      const pageNumber = Number(trailingMatch[1]);
-      if (!Number.isFinite(pageNumber) || pageNumber <= 0) return 0;
-      if (!looksLikeSamePaginationBase(parsed)) return 0;
-
-      return pageNumber;
-    } catch (_) {
-      // Ignore invalid pagination URLs.
-    }
-    return 0;
-  }
-
-  function isNonPaginationProfileUrl(parsed) {
-    const path = parsed.pathname || '';
-    if (/^\/members\/\d+\/?$/i.test(path)) return true;
-    if (/^\/users\/\d+\/?$/i.test(path)) return true;
-    if (/^\/profile\/\d+\/?$/i.test(path)) return true;
-
-    const hash = String(parsed.hash || '').replace(/^#/, '');
-    if (/^(videos|albums|favorites|favourites|comments|playlists|channels)$/i.test(hash)) return true;
-
-    return false;
-  }
-
-  function looksLikeSamePaginationBase(parsed) {
-    try {
-      const current = new URL(location.href);
-      if (parsed.origin !== current.origin) return false;
-
-      const targetBase = stripTrailingPageNumber(parsed.pathname);
-      const currentBase = stripTrailingPageNumber(current.pathname);
-
-      return targetBase === currentBase;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  function stripTrailingPageNumber(pathname) {
-    return String(pathname || '')
-      .replace(/\/\d{1,6}\/?$/, '/')
-      .replace(/\/+/g, '/')
-      .replace(/\/+$|^$/g, '/') || '/';
-  }
-
-  function refreshTotalPagesFromDocument() {
-    state.stats.totalPages = totalPageNumber(document);
-  }
-
-  function markPageCollected() {
-    state.stats.pagesCollected = Math.max(0, Number(state.stats.pagesCollected) || 0) + 1;
+    const value = Number(normalizeWhitespace(active && active.textContent));
+    return Number.isFinite(value) ? value : 0;
   }
 
   function waitForPageChange(oldSignature, oldHref) {
@@ -1790,7 +1623,7 @@
 
     state.tasks = [];
     state.seen = {};
-    state.stats = { currentPage: 1, pagesCollected: 0, totalPages: 0, captured: 0, success: 0, failed: 0, submitted: 0 };
+    state.stats = { currentPage: 1, captured: 0, success: 0, failed: 0, submitted: 0 };
     state.collection = { active: false, stopped: true, startUrl: '', lastUrl: '', checkDuplicatesAfterWrap: false, wrapCount: 0 };
     state.downloading = false;
     state.downloadStopRequested = false;
@@ -1840,7 +1673,6 @@
   function updateUi(statusText) {
     if (!uiById('r34v-captured')) return;
     if (statusText) addLog(statusText);
-    refreshTotalPagesFromDocument();
     const parseStats = getParseStats();
     state.stats.captured = parseStats.captured;
     state.stats.success = parseStats.success;
@@ -1852,7 +1684,6 @@
     setText('r34v-submitted', parseStats.submitted);
     setText('r34v-downloaded', parseStats.downloaded);
     setText('r34v-pages-collected', pagesCollected());
-    setText('r34v-total-pages', totalPages());
 
     const logEl = uiById('r34v-log');
     logEl.textContent = state.logLines.slice(-80).join('\n');
@@ -1885,11 +1716,8 @@
   }
 
   function pagesCollected() {
-    return Math.max(0, Number(state.stats.pagesCollected) || 0);
-  }
-
-  function totalPages() {
-    return Math.max(0, Number(state.stats.totalPages) || 0);
+    if (!state.tasks.length && !state.collection.active) return 0;
+    return Math.max(0, state.stats.currentPage || 0);
   }
 
   function normalizeSettings(settings) {
@@ -1976,8 +1804,6 @@
     state.seen = saved.seen && typeof saved.seen === 'object' ? saved.seen : {};
     state.settings = normalizeSettings(saved.settings || state.settings);
     state.stats = { ...state.stats, ...(saved.stats || {}) };
-    state.stats.pagesCollected = Math.max(0, Number(state.stats.pagesCollected) || 0);
-    state.stats.totalPages = Math.max(0, Number(state.stats.totalPages) || 0);
     state.collection = { ...state.collection, ...(saved.collection || {}) };
     state.downloadStopRequested = false;
     state.downloading = false;

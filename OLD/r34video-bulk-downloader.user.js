@@ -1,17 +1,15 @@
 // ==UserScript==
-// @name         R34Video批量下载
-// @namespace    https://github.com/GitRuozhi
-// @license      MIT
-// @version      3.8
-// @description  批量下载、自动下载、自动跳页、保存元信息，支持YT-dlp，并行解析，监听子页面，跨标签页同步设置，循环采集与href/data页数统计
-// @author       GitRuozhi
+// @name         R34Video Bulk Downloader
+// @namespace    https://rule34video.com/
+// @version      2.0.0
+// @description  Batch collect, export, and download directly accessible videos from rule34video.com pages.
+// @author       Codex
 // @match        https://rule34video.com/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_download
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_deleteValue
-// @grant        GM_addValueChangeListener
 // @connect      rule34video.com
 // @connect      *
 // @run-at       document-idle
@@ -21,21 +19,14 @@
   'use strict';
 
   const STORE_KEY = 'r34v_bulk_downloader_state_v2';
-  const SETTINGS_KEY = 'r34v_bulk_downloader_settings_v3';
   const PANEL_ID = 'r34v-bulk-panel';
 
   const CONFIG = {
     DEFAULT_MAX_PAGES: 10,
-    DEFAULT_RESOLVE_CONCURRENCY: 2,
-    MAX_RESOLVE_CONCURRENCY: 8,
     DOWNLOAD_CONCURRENCY: 2,
     REQUEST_DELAY_MS: 700,
     DOWNLOAD_DELAY_MS: 900,
     PAGE_WAIT_MS: 12000,
-    WATCHED_PAGE_DELAY_MS: 1000,
-    WATCHED_CLICK_VALID_MS: 20000,
-    WATCHED_DUPLICATE_MS: 1500,
-    ROUTE_POLL_MS: 500,
     RETRY_LIMIT: 1,
     MEDIA_EXTENSIONS: ['.mp4', '.webm', '.m4v', '.mov'],
   };
@@ -57,14 +48,12 @@
 
   const DEFAULT_SETTINGS = {
     maxPages: CONFIG.DEFAULT_MAX_PAGES,
-    resolveConcurrency: CONFIG.DEFAULT_RESOLVE_CONCURRENCY,
     quality: 'best',
     exportMode: EXPORT_MODE.DIRECT,
     keepId: true,
     keepTitle: true,
     keepOriginal: true,
     autoQueueSingle: true,
-    autoDownloadSingle: false,
     advancedOpen: false,
   };
 
@@ -74,20 +63,15 @@
     settings: { ...DEFAULT_SETTINGS },
     stats: {
       currentPage: 1,
-      pagesCollected: 0,
-      totalPages: 0,
       captured: 0,
       success: 0,
       failed: 0,
-      submitted: 0,
     },
     collection: {
       active: false,
       stopped: false,
       startUrl: '',
       lastUrl: '',
-      checkDuplicatesAfterWrap: false,
-      wrapCount: 0,
     },
     fetching: false,
     downloading: false,
@@ -96,34 +80,14 @@
     logLines: [],
   };
 
-  const ui = {};
-  let persistTimer = 0;
-  let persistDirty = false;
-  let applyingRemoteSettings = false;
-
-  const watchedPage = {
-    bound: false,
-    domObserver: null,
-    timer: 0,
-    processing: false,
-    rerunRequested: false,
-    lastSource: '',
-    lastClickedUrl: '',
-    lastClickedAt: 0,
-    lastObservedHref: '',
-    routePollTimer: 0,
-    lastItemKey: '',
-    lastHandledAt: 0,
-  };
-
   const css = `
     #${PANEL_ID} {
       position: fixed;
       right: 16px;
       bottom: 16px;
       z-index: 2147483647;
-      width: 300px;
-      max-width: 300px;
+      width: 320px;
+      max-width: 320px;
       color: #f2f2f2;
       background: rgba(0, 0, 0, 0.66);
       border: none;
@@ -159,18 +123,14 @@
       font-family: Arial, Helvetica, sans-serif;
     }
     #${PANEL_ID} button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 28px;
+      min-height: 26px;
       cursor: pointer;
-      border: 1px solid rgba(255, 255, 255, 0.28);
+      border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 0;
-      padding: 3px 8px;
+      padding: 2px 6px;
       color: #e8e8e8;
-      background: rgba(0, 0, 0, 0.24);
+      background: rgba(0, 0, 0, 0.2);
       white-space: nowrap;
-      line-height: 1.2;
     }
     #${PANEL_ID} button:hover {
       border-color: rgba(255, 255, 255, 0.72);
@@ -228,8 +188,8 @@
       user-select: none;
     }
     #${PANEL_ID} .r34v-toggle {
-      width: 28px;
-      min-width: 28px;
+      width: 26px;
+      min-width: 26px;
       padding: 0;
     }
     #${PANEL_ID} .r34v-body {
@@ -259,11 +219,8 @@
     #${PANEL_ID} .r34v-spacer {
       flex: 1 1 auto;
     }
-    #${PANEL_ID} .r34v-panel-button {
-      min-width: 86px;
-    }
     #${PANEL_ID} .r34v-main-button {
-      min-width: 86px;
+      min-width: 84px;
     }
     #${PANEL_ID} .r34v-advanced {
       display: none;
@@ -271,9 +228,8 @@
     #${PANEL_ID}.r34v-advanced-open .r34v-advanced {
       display: block;
     }
-    #${PANEL_ID} .r34v-max-pages,
-    #${PANEL_ID} .r34v-concurrency {
-      width: 25px;
+    #${PANEL_ID} .r34v-max-pages {
+      width: 48px;
       text-align: center;
     }
     #${PANEL_ID} .r34v-log {
@@ -287,25 +243,25 @@
       font-family: Arial, Helvetica, sans-serif;
     }
     #${PANEL_ID} .r34v-download-mode {
-      width: 80px;
+      width: 96px;
     }
     #${PANEL_ID} .r34v-quality {
-      width: 64px;
+      width: 82px;
     }
   `;
 
   async function main() {
     restoreState();
-    loadSettingsNow();
     injectStyle();
     createPanel();
-    makeDraggable(ui.panel);
+    makeDraggable(byId(PANEL_ID));
     bindSettings();
-    bindSettingsSync();
-    bindWatchedPageListeners();
     addLog('Ready.');
     updateUi();
-    scheduleWatchedPageCheck('initial-load');
+
+    if (state.settings.autoQueueSingle && isVideoPage(location.href)) {
+      await addCurrentVideoPage();
+    }
 
     if (state.collection.active && !state.collection.stopped) {
       addLog('Restored active collection after page change.');
@@ -324,42 +280,24 @@
     panel.id = PANEL_ID;
     panel.innerHTML = `
       <div class="r34v-head">
-        <span class="r34v-stat">捕获<strong id="r34v-captured">0</strong>　</span>
-        <span class="r34v-stat">解析<strong id="r34v-resolved">0</strong>　</span>
-        <span class="r34v-stat">提交<strong id="r34v-submitted">0</strong>　</span>
-        <span class="r34v-stat">下载<strong id="r34v-downloaded">0</strong>　</span>
+        <span class="r34v-stat">已捕获 <strong id="r34v-captured">0</strong></span>
+        <span class="r34v-stat">已解析 <strong id="r34v-resolved">0</strong></span>
+        <span class="r34v-stat">已下载 <strong id="r34v-downloaded">0</strong></span>
         <span class="r34v-spacer"></span>
         <button type="button" id="r34v-toggle" class="r34v-toggle" title="展开/收缩">_</button>
       </div>
       <div class="r34v-body">
         <div class="r34v-row">
-        <button type="button" id="r34v-clear" class="r34v-panel-button">清除队列</button>
-          <button type="button" id="r34v-collect-current" class="r34v-panel-button">采集当前页</button>
-          <button type="button" id="r34v-collect-toggle" class="r34v-panel-button">采集多页</button>
+          <button type="button" id="r34v-collect-current" class="r34v-main-button">采集当前页</button>
+          <button type="button" id="r34v-collect-toggle" class="r34v-main-button">开始连续采集</button>
         </div>
         <div class="r34v-row">
-          <button type="button" id="r34v-download" class="r34v-panel-button">开始下载</button>
-          <button type="button" id="r34v-advanced-toggle" class="r34v-panel-button">高级选项</button>
+          <button type="button" id="r34v-download" class="r34v-main-button">开始下载</button>
+        </div>
+        <div class="r34v-row">
+          <button type="button" id="r34v-advanced-toggle" class="r34v-main-button">高级选项</button>
         </div>
         <div class="r34v-advanced" id="r34v-advanced">
-
-
-        <div class="r34v-row">
-            <span>已采集 <strong id="r34v-pages-collected">0</strong>/<strong id="r34v-total-pages">0</strong> 页</span>
-         </div>
-          <div class="r34v-row">
-            <label><input type="checkbox" id="r34v-auto-queue">已看视频自动入队</label>
-            <label><input type="checkbox" id="r34v-auto-download">入队自动下载</label>
-          </div>
-
-          <div class="r34v-row">
-            <label>下载并行
-              <input id="r34v-resolve-concurrency" class="r34v-concurrency" type="number" min="1" max="8" step="1">
-            </label>
-            <span>一次性采集页数</span>
-            <input id="r34v-max-pages" class="r34v-max-pages" type="number" min="1" max="999" step="1">
-            <span></span>
-          </div>
           <div class="r34v-row">
             <label>下载方式
               <select id="r34v-export-mode" class="r34v-download-mode">
@@ -381,374 +319,78 @@
             </label>
           </div>
           <div class="r34v-row">
-            <span>文件名：</span>
+            <span>文件名</span>
             <label><input type="checkbox" id="r34v-keep-id">Id</label>
             <label><input type="checkbox" id="r34v-keep-title">标题</label>
             <label><input type="checkbox" id="r34v-keep-original">原文件名</label>
+          </div>
+          <div class="r34v-row">
+            <label><input type="checkbox" id="r34v-auto-queue">自动入队</label>
+            <span>最多</span>
+            <input id="r34v-max-pages" class="r34v-max-pages" type="number" min="1" max="999" step="1">
+            <span>页</span>
+            <span>已采集 <strong id="r34v-pages-collected">0</strong> 页</span>
+          </div>
+          <div class="r34v-row">
+            <button type="button" id="r34v-clear">清除队列</button>
           </div>
           <div class="r34v-log" id="r34v-log"></div>
         </div>
       </div>
     `;
     document.body.appendChild(panel);
-    cacheUi();
 
-    uiById('r34v-collect-current').addEventListener('click', () => collectCurrentOnly());
-    uiById('r34v-collect-toggle').addEventListener('click', togglePageCollection);
-    uiById('r34v-download').addEventListener('click', startDownloads);
-    uiById('r34v-clear').addEventListener('click', clearTasks);
-    uiById('r34v-advanced-toggle').addEventListener('click', toggleAdvancedOptions);
-    uiById('r34v-toggle').addEventListener('click', () => {
+    byId('r34v-collect-current').addEventListener('click', () => collectCurrentOnly());
+    byId('r34v-collect-toggle').addEventListener('click', togglePageCollection);
+    byId('r34v-download').addEventListener('click', startDownloads);
+    byId('r34v-clear').addEventListener('click', clearTasks);
+    byId('r34v-advanced-toggle').addEventListener('click', toggleAdvancedOptions);
+    byId('r34v-toggle').addEventListener('click', () => {
       panel.classList.toggle('r34v-minimized');
-      uiById('r34v-toggle').textContent = panel.classList.contains('r34v-minimized') ? '+' : '_';
+      byId('r34v-toggle').textContent = panel.classList.contains('r34v-minimized') ? '+' : '_';
     });
-  }
-
-  function cacheUi() {
-    [
-      PANEL_ID,
-      'r34v-captured',
-      'r34v-resolved',
-      'r34v-submitted',
-      'r34v-downloaded',
-      'r34v-toggle',
-      'r34v-clear',
-      'r34v-collect-current',
-      'r34v-collect-toggle',
-      'r34v-download',
-      'r34v-advanced-toggle',
-      'r34v-auto-queue',
-      'r34v-auto-download',
-      'r34v-resolve-concurrency',
-      'r34v-pages-collected',
-      'r34v-total-pages',
-      'r34v-max-pages',
-      'r34v-export-mode',
-      'r34v-quality',
-      'r34v-keep-id',
-      'r34v-keep-title',
-      'r34v-keep-original',
-      'r34v-log',
-    ].forEach((id) => {
-      ui[id] = byId(id);
-    });
-    ui.panel = ui[PANEL_ID];
-  }
-
-  function uiById(id) {
-    return ui[id] || byId(id);
   }
 
   function bindSettings() {
-    applySettingsToUi();
+    byId('r34v-max-pages').value = String(state.settings.maxPages);
+    byId('r34v-quality').value = state.settings.quality;
+    byId('r34v-export-mode').value = state.settings.exportMode;
+    byId('r34v-keep-id').checked = state.settings.keepId;
+    byId('r34v-keep-title').checked = state.settings.keepTitle;
+    byId('r34v-keep-original').checked = state.settings.keepOriginal;
+    byId('r34v-auto-queue').checked = state.settings.autoQueueSingle;
 
     [
       'r34v-max-pages',
-      'r34v-resolve-concurrency',
       'r34v-quality',
       'r34v-export-mode',
       'r34v-keep-id',
       'r34v-keep-title',
       'r34v-keep-original',
       'r34v-auto-queue',
-      'r34v-auto-download',
-    ].forEach((id) => uiById(id).addEventListener('change', saveSettingsFromUi));
-    uiById('r34v-resolve-concurrency').addEventListener('input', clampResolveConcurrencyInput);
-  }
-
-  function applySettingsToUi() {
-    if (!uiById('r34v-max-pages')) return;
-    uiById('r34v-max-pages').value = String(state.settings.maxPages);
-    uiById('r34v-resolve-concurrency').value = String(state.settings.resolveConcurrency);
-    uiById('r34v-quality').value = state.settings.quality;
-    uiById('r34v-export-mode').value = state.settings.exportMode;
-    uiById('r34v-keep-id').checked = state.settings.keepId;
-    uiById('r34v-keep-title').checked = state.settings.keepTitle;
-    uiById('r34v-keep-original').checked = state.settings.keepOriginal;
-    uiById('r34v-auto-queue').checked = state.settings.autoQueueSingle;
-    uiById('r34v-auto-download').checked = state.settings.autoDownloadSingle;
-  }
-
-  function clampResolveConcurrencyInput() {
-    const input = uiById('r34v-resolve-concurrency');
-    const value = Number(input.value);
-    if (Number.isFinite(value) && value > CONFIG.MAX_RESOLVE_CONCURRENCY) {
-      input.value = String(CONFIG.MAX_RESOLVE_CONCURRENCY);
-    }
+    ].forEach((id) => byId(id).addEventListener('change', saveSettingsFromUi));
   }
 
   function saveSettingsFromUi() {
-    if (applyingRemoteSettings) return;
-    const maxPages = clampInt(uiById('r34v-max-pages').value, 1, 999, CONFIG.DEFAULT_MAX_PAGES);
-    const resolveConcurrency = clampInt(
-      uiById('r34v-resolve-concurrency').value,
-      1,
-      CONFIG.MAX_RESOLVE_CONCURRENCY,
-      CONFIG.DEFAULT_RESOLVE_CONCURRENCY
-    );
-
-    state.settings.maxPages = maxPages;
-    state.settings.resolveConcurrency = resolveConcurrency;
-    state.settings.quality = uiById('r34v-quality').value;
-    state.settings.exportMode = uiById('r34v-export-mode').value;
-    state.settings.keepId = uiById('r34v-keep-id').checked;
-    state.settings.keepTitle = uiById('r34v-keep-title').checked;
-    state.settings.keepOriginal = uiById('r34v-keep-original').checked;
-    state.settings.autoQueueSingle = uiById('r34v-auto-queue').checked;
-    state.settings.autoDownloadSingle = uiById('r34v-auto-download').checked;
-
-    uiById('r34v-max-pages').value = String(maxPages);
-    uiById('r34v-resolve-concurrency').value = String(resolveConcurrency);
-
+    state.settings.maxPages = clampInt(byId('r34v-max-pages').value, 1, 999, CONFIG.DEFAULT_MAX_PAGES);
+    state.settings.quality = byId('r34v-quality').value;
+    state.settings.exportMode = byId('r34v-export-mode').value;
+    state.settings.keepId = byId('r34v-keep-id').checked;
+    state.settings.keepTitle = byId('r34v-keep-title').checked;
+    state.settings.keepOriginal = byId('r34v-keep-original').checked;
+    state.settings.autoQueueSingle = byId('r34v-auto-queue').checked;
     state.tasks.forEach((task) => {
       applyQualitySelection(task);
       updateTaskFilename(task);
     });
-    saveSettingsNow();
     persistState();
-    if (state.settings.autoQueueSingle) {
-      scheduleWatchedPageCheck('settings');
-    }
     updateUi();
   }
 
   function toggleAdvancedOptions() {
     state.settings.advancedOpen = !state.settings.advancedOpen;
-    saveSettingsNow();
     persistState();
     updateUi();
-  }
-
-  function bindWatchedPageListeners() {
-    if (watchedPage.bound) return;
-    watchedPage.bound = true;
-    watchedPage.lastObservedHref = normalizeUrl(location.href);
-
-    document.addEventListener('click', handleWatchedPageClick, true);
-    bindHistoryChangeCapture();
-    bindWatchedDomObserver();
-
-    window.addEventListener('load', () => scheduleWatchedPageCheck('load'));
-    window.addEventListener('pageshow', () => scheduleWatchedPageCheck('pageshow'));
-    window.addEventListener('popstate', () => scheduleWatchedPageCheck('popstate'));
-    window.addEventListener('hashchange', () => scheduleWatchedPageCheck('hashchange'));
-
-    watchedPage.routePollTimer = setInterval(() => {
-      const current = normalizeUrl(location.href);
-      if (current === watchedPage.lastObservedHref) return;
-      watchedPage.lastObservedHref = current;
-      scheduleWatchedPageCheck('url-poll');
-    }, CONFIG.ROUTE_POLL_MS);
-  }
-
-  function handleWatchedPageClick(event) {
-    const target = event.target;
-    const anchor = target && target.closest ? target.closest('a[href*="/video/"]') : null;
-    if (!anchor || isPanelNode(anchor)) return;
-
-    const url = safeUrl(anchor.getAttribute('href'), location.href);
-    if (!url || !isVideoPage(url.href)) return;
-
-    watchedPage.lastClickedUrl = normalizeUrl(url.href);
-    watchedPage.lastClickedAt = Date.now();
-    scheduleWatchedPageCheck('click');
-  }
-
-  function bindHistoryChangeCapture() {
-    const rawPushState = history.pushState;
-    const rawReplaceState = history.replaceState;
-
-    history.pushState = function (...args) {
-      const result = rawPushState.apply(this, args);
-      watchedPage.lastObservedHref = normalizeUrl(location.href);
-      scheduleWatchedPageCheck('pushState');
-      return result;
-    };
-
-    history.replaceState = function (...args) {
-      const result = rawReplaceState.apply(this, args);
-      watchedPage.lastObservedHref = normalizeUrl(location.href);
-      scheduleWatchedPageCheck('replaceState');
-      return result;
-    };
-  }
-
-  function bindWatchedDomObserver() {
-    if (watchedPage.domObserver) return;
-
-    watchedPage.domObserver = new MutationObserver((mutations) => {
-      if (!mutations.some(isRelevantPageMutation)) return;
-      scheduleWatchedPageCheck('dom');
-    });
-
-    watchedPage.domObserver.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
-  }
-
-  function isRelevantPageMutation(mutation) {
-    if (isPanelNode(mutation.target)) return false;
-
-    const nodes = Array.from(mutation.addedNodes || []).concat(Array.from(mutation.removedNodes || []));
-    if (!nodes.length) return true;
-
-    return nodes.some((node) => {
-      if (isPanelNode(node)) return false;
-      if (node.nodeType !== Node.ELEMENT_NODE) return false;
-      if (node.matches && node.matches('a[download], style, script')) return false;
-      return true;
-    });
-  }
-
-  function isPanelNode(node) {
-    if (!node) return false;
-    const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-    if (!element) return false;
-    if (element.id === PANEL_ID) return true;
-    return Boolean(element.closest && element.closest(`#${PANEL_ID}`));
-  }
-
-  function scheduleWatchedPageCheck(source, delayMs = CONFIG.WATCHED_PAGE_DELAY_MS) {
-    watchedPage.lastSource = source || watchedPage.lastSource || 'watch';
-    clearTimeout(watchedPage.timer);
-    watchedPage.timer = setTimeout(() => {
-      runWatchedPageCheck(watchedPage.lastSource);
-    }, delayMs);
-  }
-
-  async function runWatchedPageCheck(source) {
-    if (!state.settings.autoQueueSingle) return;
-
-    if (watchedPage.processing) {
-      watchedPage.rerunRequested = true;
-      return;
-    }
-
-    watchedPage.processing = true;
-    watchedPage.rerunRequested = false;
-
-    try {
-      const postUrl = detectCurrentWatchedPostUrl();
-      if (!postUrl) {
-        watchedPage.lastItemKey = '';
-        return;
-      }
-
-      const normalized = normalizeUrl(postUrl);
-      const itemKey = watchedItemKey(normalized);
-      const now = Date.now();
-
-      if (itemKey && itemKey === watchedPage.lastItemKey && now - watchedPage.lastHandledAt < CONFIG.WATCHED_DUPLICATE_MS) {
-        return;
-      }
-
-      if (itemKey && itemKey === watchedPage.lastItemKey) {
-        return;
-      }
-
-      watchedPage.lastItemKey = itemKey;
-      watchedPage.lastHandledAt = now;
-      await queueWatchedVideo(normalized, source || 'watch');
-    } catch (error) {
-      addLog(`Auto queue check failed: ${messageOf(error)}`);
-      updateUi();
-    } finally {
-      watchedPage.processing = false;
-      if (watchedPage.rerunRequested) {
-        watchedPage.rerunRequested = false;
-        scheduleWatchedPageCheck('rerun');
-      }
-    }
-  }
-
-  function detectCurrentWatchedPostUrl() {
-    if (isVideoPage(location.href)) return normalizeUrl(location.href);
-
-    if (isRecentClickedVideo() && hasInlineVideoSignal()) {
-      return watchedPage.lastClickedUrl;
-    }
-
-    const canonical = document.querySelector('link[rel="canonical"][href]');
-    if (canonical && isVideoPage(canonical.href) && hasInlineVideoSignal()) {
-      return normalizeUrl(canonical.href);
-    }
-
-    const activeLink = document.querySelector([
-      '[class*="popup"] a[href*="/video/"]',
-      '[class*="modal"] a[href*="/video/"]',
-      '[id*="popup"] a[href*="/video/"]',
-      '[id*="modal"] a[href*="/video/"]',
-      '[class*="player"] a[href*="/video/"]',
-      '[id*="player"] a[href*="/video/"]',
-    ].join(','));
-
-    if (activeLink && isVideoPage(activeLink.href) && hasInlineVideoSignal()) {
-      return normalizeUrl(activeLink.href);
-    }
-
-    return '';
-  }
-
-  function isRecentClickedVideo() {
-    return Boolean(
-      watchedPage.lastClickedUrl &&
-      isVideoPage(watchedPage.lastClickedUrl) &&
-      Date.now() - watchedPage.lastClickedAt <= CONFIG.WATCHED_CLICK_VALID_MS
-    );
-  }
-
-  function hasInlineVideoSignal() {
-    if (document.querySelector('video[src], video source[src], source[type*="video"][src]')) return true;
-    if (document.documentElement && /\bvar\s+flashvars\s*=/i.test(document.documentElement.innerHTML)) return true;
-
-    const roots = document.querySelectorAll([
-      '[class*="popup"]',
-      '[class*="modal"]',
-      '[class*="overlay"]',
-      '[id*="popup"]',
-      '[id*="modal"]',
-      '[id*="overlay"]',
-      '[class*="player"]',
-      '[id*="player"]',
-    ].join(','));
-
-    return Array.from(roots).some((root) => {
-      if (isPanelNode(root)) return false;
-      return Boolean(root.querySelector('video, source[type*="video"], a[href*="/video/"], [class*="video"], [id*="video"]'));
-    });
-  }
-
-  function watchedItemKey(postUrl) {
-    const id = extractPostId(postUrl);
-    return id ? `id:${id}` : normalizeUrl(postUrl);
-  }
-
-  async function queueWatchedVideo(postUrl, source) {
-    const normalized = normalizeUrl(postUrl);
-    const wasAdded = addTask(normalized);
-    const task = findTaskByPostUrl(normalized);
-
-    if (!task) return false;
-
-    if (wasAdded) {
-      addLog(`Auto queued watched video (${source}): ${normalized}`);
-    }
-
-    if (task.status === STATUS.PENDING) {
-      await resolvePendingTasks([normalized]);
-    }
-
-    const resolvedTask = findTaskByPostUrl(normalized);
-    if (!resolvedTask) return wasAdded;
-
-    if (state.settings.autoDownloadSingle && resolvedTask.status === STATUS.READY && resolvedTask.videoUrl) {
-      startSingleAutoDownload(resolvedTask);
-    }
-
-    persistState();
-    updateUi();
-    return wasAdded;
   }
 
   async function collectCurrentOnly() {
@@ -766,11 +408,7 @@
     state.collection.stopped = false;
     state.collection.startUrl = normalizeUrl(location.href);
     state.collection.lastUrl = normalizeUrl(location.href);
-    state.collection.checkDuplicatesAfterWrap = false;
-    state.collection.wrapCount = 0;
     state.stats.currentPage = 1;
-    state.stats.pagesCollected = 0;
-    state.stats.totalPages = totalPageNumber(document);
     persistState();
     await collectCurrentThenAdvance(false);
   }
@@ -794,22 +432,8 @@
 
   async function collectCurrentThenAdvance(restored) {
     if (!state.collection.active || state.collection.stopped || state.fetching) return;
-    const collectResult = await collectCurrentPageVideos();
+    await collectCurrentPageVideos();
     if (!state.collection.active || state.collection.stopped) return;
-
-    if (state.collection.checkDuplicatesAfterWrap) {
-      state.collection.checkDuplicatesAfterWrap = false;
-      if (collectResult && collectResult.duplicates > 0) {
-        state.collection.active = false;
-        state.collection.stopped = true;
-        addLog(`Duplicate found after wrapping to first page: ${collectResult.duplicates}. Collection stopped.`);
-        persistState();
-        persistStateNow();
-        updateUi('Collection stopped: duplicate found after wrap.');
-        return;
-      }
-      addLog('No duplicates found after wrapping to first page; continuing collection.');
-    }
 
     if (state.stats.currentPage >= state.settings.maxPages) {
       state.collection.active = false;
@@ -819,30 +443,20 @@
       return;
     }
 
-    let nextLink = findNextPageLink(document);
-    let wrappedToFirst = false;
+    const nextLink = findNextPageLink(document);
     if (!nextLink) {
-      nextLink = findFirstPageLink(document);
-      if (!nextLink) {
-        state.collection.active = false;
-        addLog('No next page or first page link found.');
-        persistState();
-        updateUi('Collection finished.');
-        return;
-      }
-      wrappedToFirst = true;
-      state.collection.checkDuplicatesAfterWrap = true;
-      state.collection.wrapCount = (state.collection.wrapCount || 0) + 1;
+      state.collection.active = false;
+      addLog('No next page found.');
+      persistState();
+      updateUi('Collection finished.');
+      return;
     }
 
     state.stats.currentPage += 1;
     state.collection.lastUrl = normalizeUrl(location.href);
     persistState();
-    persistStateNow();
-    addLog(wrappedToFirst
-      ? `Last page reached; jumping to first page (${state.stats.currentPage}/${state.settings.maxPages}).`
-      : `Clicking next page (${state.stats.currentPage}/${state.settings.maxPages}).`);
-    updateUi(wrappedToFirst ? 'Jumping to first page...' : 'Waiting for next page...');
+    addLog(`Clicking next page (${state.stats.currentPage}/${state.settings.maxPages}).`);
+    updateUi('Waiting for next page...');
     await clickNextAndContinue(nextLink, restored);
   }
 
@@ -865,35 +479,26 @@
   }
 
   async function collectCurrentPageVideos() {
-    const result = { found: 0, added: 0, duplicates: 0, failed: false };
-    if (state.fetching) return result;
+    if (state.fetching) return;
     state.fetching = true;
     saveSettingsFromUi();
     updateUi('Collecting current page...');
 
     try {
       if (isVideoPage(location.href)) {
-        const added = await addCurrentVideoPage();
-        result.found = 1;
-        result.added = added ? 1 : 0;
-        result.duplicates = added ? 0 : 1;
+        await addCurrentVideoPage();
       } else {
         const urls = extractPostUrls(document, location.href);
         let added = 0;
         urls.forEach((url) => {
           if (addTask(url)) added += 1;
         });
-        result.found = urls.length;
-        result.added = added;
-        result.duplicates = Math.max(0, urls.length - added);
-        addLog(`Page ${state.stats.currentPage}: found ${urls.length}, added ${added}, duplicate ${result.duplicates}.`);
+        addLog(`Page ${state.stats.currentPage}: found ${urls.length}, added ${added}.`);
       }
 
       await resolvePendingTasks();
-      markPageCollected();
       updateUi('Current page collected.');
     } catch (error) {
-      result.failed = true;
       addLog(`Collect failed: ${messageOf(error)}`);
       updateUi('Collect failed.');
     } finally {
@@ -901,29 +506,15 @@
       persistState();
       updateUi();
     }
-    return result;
   }
 
-  async function addCurrentVideoPage(options = {}) {
-    if (!isVideoPage(location.href)) return false;
-    const currentUrl = normalizeUrl(location.href);
-    const added = addTask(currentUrl);
-    const task = findTaskByPostUrl(currentUrl);
+  async function addCurrentVideoPage() {
+    if (!isVideoPage(location.href)) return;
+    const added = addTask(normalizeUrl(location.href));
     if (added) addLog('Current video queued.');
-    await resolvePendingTasks([currentUrl]);
-
-    if (options.autoDownload && added && task && task.videoUrl && task.status === STATUS.READY) {
-      startSingleAutoDownload(task);
-    }
-
+    await resolvePendingTasks([normalizeUrl(location.href)]);
     persistState();
     updateUi();
-    return added;
-  }
-
-  function findTaskByPostUrl(postUrl) {
-    const normalized = normalizeUrl(postUrl);
-    return state.tasks.find((task) => normalizeUrl(task.postUrl) === normalized) || null;
   }
 
   function addTask(postUrl) {
@@ -947,12 +538,6 @@
       status: STATUS.PENDING,
       error: '',
       retries: 0,
-      metaDownloadDone: false,
-      videoDownloadSubmitted: false,
-      videoDownloadDone: false,
-      metaDownloadedAt: '',
-      videoSubmittedAt: '',
-      videoDownloadedAt: '',
       capturedAt: new Date().toISOString(),
     };
 
@@ -966,78 +551,53 @@
   async function resolvePendingTasks(onlyUrls) {
     const only = onlyUrls ? new Set(onlyUrls.map(normalizeUrl)) : null;
     const targets = state.tasks.filter((task) => task.status === STATUS.PENDING && (!only || only.has(normalizeUrl(task.postUrl))));
-    if (!targets.length) return;
 
-    const concurrency = clampInt(
-      state.settings.resolveConcurrency,
-      1,
-      CONFIG.MAX_RESOLVE_CONCURRENCY,
-      CONFIG.DEFAULT_RESOLVE_CONCURRENCY
-    );
-    let cursor = 0;
+    for (const task of targets) {
+      task.status = STATUS.FETCHING;
+      task.error = '';
+      persistState();
+      updateUi(`Resolving ${task.postUrl}`);
 
-    async function worker() {
-      while (cursor < targets.length) {
-        const task = targets[cursor];
-        cursor += 1;
-        await resolveOneTask(task);
-        await delay(CONFIG.REQUEST_DELAY_MS);
+      try {
+        const html = normalizeUrl(task.postUrl) === normalizeUrl(location.href)
+          ? document.documentElement.outerHTML
+          : await requestText(task.postUrl);
+        const doc = parseHtml(html);
+        const resolved = resolveVideoFromDocument(doc, task.postUrl);
+        if (!resolved.videoUrl) throw new Error('No direct video URL found');
+
+        task.videoUrl = resolved.videoUrl;
+        task.title = resolved.title || task.title || extractTitle(doc);
+        task.postId = resolved.id || task.postId || extractPostIdFromDocument(doc) || shortHash(task.postUrl);
+        task.originalFilename = filenameFromUrl(task.videoUrl);
+        task.selectedQuality = resolved.selectedQuality;
+        task.requestedQuality = state.settings.quality;
+        task.availableQualities = resolved.availableQualities;
+        task.metadata = resolved.metadata;
+        task.capturedAt = task.capturedAt || new Date().toISOString();
+        updateTaskFilename(task);
+        task.status = STATUS.READY;
+
+        if (state.settings.quality !== 'best' && task.selectedQuality !== state.settings.quality) {
+          addLog(`Quality fallback: ${task.postId} ${displayQuality(state.settings.quality)} -> ${displayQuality(task.selectedQuality) || 'best available'}.`);
+        }
+      } catch (error) {
+        task.status = STATUS.FAILED;
+        task.error = messageOf(error);
+        addLog(`Resolve failed: ${task.postUrl} - ${task.error}`);
       }
+
+      persistState();
+      updateUi();
+      await delay(CONFIG.REQUEST_DELAY_MS);
     }
-
-    await Promise.all(
-      Array.from({ length: Math.min(concurrency, targets.length) }, () => worker())
-    );
-  }
-
-  async function resolveOneTask(task) {
-    task.status = STATUS.FETCHING;
-    task.error = '';
-    persistState();
-    updateUi(`Resolving ${task.postUrl}`);
-
-    try {
-      const html = normalizeUrl(task.postUrl) === normalizeUrl(location.href)
-        ? document.documentElement.outerHTML
-        : await requestText(task.postUrl);
-      const doc = parseHtml(html);
-      const resolved = resolveVideoFromDocument(doc, task.postUrl);
-      if (!resolved.videoUrl) throw new Error('No direct video URL found');
-
-      task.videoUrl = resolved.videoUrl;
-      task.title = resolved.title || task.title || extractTitle(doc);
-      task.postId = resolved.id || task.postId || extractPostIdFromDocument(doc) || shortHash(task.postUrl);
-      task.originalFilename = filenameFromUrl(task.videoUrl);
-      task.selectedQuality = resolved.selectedQuality;
-      task.requestedQuality = state.settings.quality;
-      task.availableQualities = resolved.availableQualities;
-      task.metadata = resolved.metadata;
-      task.capturedAt = task.capturedAt || new Date().toISOString();
-      updateTaskFilename(task);
-      task.status = STATUS.READY;
-
-      if (state.settings.quality !== 'best' && task.selectedQuality !== state.settings.quality) {
-        addLog(`Quality fallback: ${task.postId} ${displayQuality(state.settings.quality)} -> ${displayQuality(task.selectedQuality) || 'best available'}.`);
-      }
-    } catch (error) {
-      task.status = STATUS.FAILED;
-      task.error = messageOf(error);
-      addLog(`Resolve failed: ${task.postUrl} - ${task.error}`);
-    }
-
-    persistState();
-    updateUi();
   }
 
   function resolveVideoFromDocument(doc, baseUrl) {
-    const html = doc.documentElement.innerHTML;
-    const flashvars = extractFlashvarsFromHtml(html);
-    const jsonLdItems = extractJsonLd(doc);
-    const meta = extractMetaTags(doc);
-    const context = { doc, baseUrl, html, flashvars, jsonLdItems, meta };
-    const qualities = extractQualitySources(context);
+    const flashvars = extractFlashvars(doc);
+    const qualities = extractQualitySources(doc, baseUrl, flashvars);
     const selected = selectQuality(qualities, state.settings.quality);
-    const metadata = extractMetadata(context, qualities, selected);
+    const metadata = extractMetadata(doc, baseUrl, flashvars, qualities, selected);
 
     return {
       id: metadata.id || extractPostId(baseUrl),
@@ -1050,11 +610,7 @@
   }
 
   function extractFlashvars(doc) {
-    const html = doc && doc.documentElement ? doc.documentElement.innerHTML : String(doc || '');
-    return extractFlashvarsFromHtml(html);
-  }
-
-  function extractFlashvarsFromHtml(html) {
+    const html = doc.documentElement.innerHTML;
     const start = html.search(/\bvar\s+flashvars\s*=/i);
     if (start < 0) return {};
 
@@ -1123,8 +679,7 @@
       .replace(/\\u([0-9a-f]{4})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
   }
 
-  function extractQualitySources(context) {
-    const { doc, baseUrl, flashvars, jsonLdItems, html } = context;
+  function extractQualitySources(doc, baseUrl, flashvars) {
     const sources = [];
 
     Object.keys(flashvars).forEach((key) => {
@@ -1167,7 +722,7 @@
       });
     });
 
-    jsonLdItems.forEach((item) => {
+    extractJsonLd(doc).forEach((item) => {
       const contentUrl = safeUrl(item.contentUrl, baseUrl);
       if (!contentUrl || !isMediaUrl(contentUrl.href)) return;
       const label = qualityFromUrl(contentUrl.href) || 'unknown';
@@ -1180,7 +735,7 @@
       });
     });
 
-    const htmlUrls = Array.from(html.matchAll(/https?:\/\/[^"'<>\\\s]+?\.(?:mp4|webm|m4v|mov)(?:\/)?(?:\?[^"'<>\\\s]*)?/gi))
+    const htmlUrls = Array.from(doc.documentElement.innerHTML.matchAll(/https?:\/\/[^"'<>\\\s]+?\.(?:mp4|webm|m4v|mov)(?:\/)?(?:\?[^"'<>\\\s]*)?/gi))
       .map((match) => decodeHtmlEntities(match[0]));
     htmlUrls.forEach((rawUrl) => {
       const url = safeUrl(rawUrl, baseUrl);
@@ -1215,9 +770,10 @@
     return sorted.find((item) => item.height === requestedHeight) || sorted[0];
   }
 
-  function extractMetadata(context, qualities, selected) {
-    const { doc, baseUrl, flashvars, jsonLdItems, meta } = context;
+  function extractMetadata(doc, baseUrl, flashvars, qualities, selected) {
+    const jsonLdItems = extractJsonLd(doc);
     const videoObject = jsonLdItems.find((item) => String(item['@type'] || '').toLowerCase() === 'videoobject') || {};
+    const meta = extractMetaTags(doc);
     const pageTitle = extractTitle(doc);
     const id = String(flashvars.video_id || extractPostId(baseUrl) || '').trim();
     const title = normalizeWhitespace(flashvars.video_title || videoObject.name || pageTitle);
@@ -1348,184 +904,10 @@
     return links.find((link) => /^(next|>|next\s*>|older|下一页|下页)$/i.test(normalizeWhitespace(link.textContent))) || null;
   }
 
-  function findFirstPageLink(doc) {
-    const relFirst = doc.querySelector('a[rel="first"][href]');
-    if (relFirst) return relFirst;
-
-    const paginationRoots = Array.from(doc.querySelectorAll('[id*="pagination"], .pagination, .page, .paging'));
-    const roots = paginationRoots.length ? paginationRoots : [doc];
-    const links = roots.flatMap((root) => Array.from(root.querySelectorAll('a[href]')));
-
-    const numeric = links
-      .map((link) => ({ link, num: Number(normalizeWhitespace(link.textContent)) }))
-      .filter((item) => Number.isFinite(item.num) && item.num === 1)
-      .sort((a, b) => a.link.href.length - b.link.href.length)[0];
-    if (numeric) return numeric.link;
-
-    return links.find((link) => /^(first|<<|<\s*<|首页|第一页)$/i.test(normalizeWhitespace(link.textContent))) || null;
-  }
-
   function currentPageNumber(doc) {
     const active = doc.querySelector('[id*="pagination"] .active, .pagination .active, .page .active, .paging .active');
-    if (!active) return 0;
-
-    const activeLink = active.matches && active.matches('a') ? active : active.querySelector && active.querySelector('a');
-    if (activeLink) {
-      const fromData = pageNumberFromDataParameters(activeLink.getAttribute('data-parameters'));
-      if (fromData > 0) return fromData;
-
-      const fromHref = pageNumberFromHref(activeLink.getAttribute('href'));
-      if (fromHref > 0) return fromHref;
-    }
-
-    const value = Number(normalizeWhitespace(active.textContent));
-    return Number.isFinite(value) && value > 0 ? value : 0;
-  }
-
-  function totalPageNumber(doc) {
-    const numbers = paginationPageNumbers(doc);
-    const current = currentPageNumber(doc);
-    if (current > 0) numbers.push(current);
-
-    const text = normalizeWhitespace(Array.from(doc.querySelectorAll('[id*="pagination"], .pagination, .page, .paging'))
-      .map((node) => node.textContent)
-      .join(' '));
-    const totalMatch = text.match(/(?:of|共|\/|total)\s*(\d{1,6})(?:\s*页|\s*pages?)?/i)
-      || text.match(/(?:page|第)\s*\d{1,6}\s*(?:of|\/|共)\s*(\d{1,6})/i);
-    if (totalMatch) numbers.push(Number(totalMatch[1]));
-
-    const max = numbers.filter((value) => Number.isFinite(value) && value > 0).sort((a, b) => b - a)[0] || 0;
-    if (max > 0) return max;
-
-    if (!isVideoPage(location.href) && extractPostUrls(doc, location.href).length > 0) return 1;
-    return 0;
-  }
-
-  function paginationPageNumbers(doc) {
-    const roots = paginationRoots(doc);
-    const numbers = [];
-
-    roots.forEach((root) => {
-      root.querySelectorAll('a, span, li, strong, em, b').forEach((node) => {
-        const text = normalizeWhitespace(node.textContent);
-        if (/^\d{1,6}$/.test(text)) numbers.push(Number(text));
-
-        const dataParams = node.getAttribute && node.getAttribute('data-parameters');
-        const dataNumber = pageNumberFromDataParameters(dataParams);
-        if (dataNumber > 0) numbers.push(dataNumber);
-
-        const href = node.getAttribute && node.getAttribute('href');
-        const hrefNumber = pageNumberFromHref(href);
-        if (hrefNumber > 0) numbers.push(hrefNumber);
-      });
-    });
-
-    return numbers;
-  }
-
-  function paginationRoots(doc) {
-    const roots = Array.from(doc.querySelectorAll('[id*="pagination"], .pagination, .page, .paging'));
-    return roots.length ? roots : [];
-  }
-
-  function pageNumberFromDataParameters(value) {
-    const text = String(value || '');
-    if (!text) return 0;
-
-    const patterns = [
-      /(?:^|[;,&])from_videos\s*:\s*0*(\d{1,6})(?=$|[;,&])/i,
-      /(?:^|[;,&])from_albums\s*:\s*0*(\d{1,6})(?=$|[;,&])/i,
-      /(?:^|[;,&])from\s*:\s*0*(\d{1,6})(?=$|[;,&])/i,
-      /(?:^|[;,&])page\s*:\s*0*(\d{1,6})(?=$|[;,&])/i,
-      /(?:^|[;,&])p\s*:\s*0*(\d{1,6})(?=$|[;,&])/i,
-    ];
-
-    for (const pattern of patterns) {
-      const match = text.match(pattern);
-      if (!match) continue;
-
-      const number = Number(match[1]);
-      if (Number.isFinite(number) && number > 0) return number;
-    }
-
-    return 0;
-  }
-
-  function pageNumberFromHref(href) {
-    if (!href) return 0;
-    try {
-      const parsed = new URL(href, location.href);
-
-      const pageParamKeys = ['page', 'p', 'pg'];
-      for (const key of pageParamKeys) {
-        const value = parsed.searchParams.get(key);
-        if (/^\d{1,6}$/.test(value || '')) return Number(value);
-      }
-
-      const dataParamKeys = ['from_videos', 'from_albums', 'from'];
-      for (const key of dataParamKeys) {
-        const value = parsed.searchParams.get(key);
-        if (/^\d{1,6}$/.test(value || '')) return Number(value);
-      }
-
-      const explicitPathMatch = parsed.pathname.match(/(?:\/page\/|\/p\/)(\d{1,6})(?:\/|$)/i);
-      if (explicitPathMatch) return Number(explicitPathMatch[1]);
-
-      if (isNonPaginationProfileUrl(parsed)) return 0;
-
-      const trailingMatch = parsed.pathname.match(/\/(\d{1,6})\/?$/);
-      if (!trailingMatch) return 0;
-
-      const pageNumber = Number(trailingMatch[1]);
-      if (!Number.isFinite(pageNumber) || pageNumber <= 0) return 0;
-      if (!looksLikeSamePaginationBase(parsed)) return 0;
-
-      return pageNumber;
-    } catch (_) {
-      // Ignore invalid pagination URLs.
-    }
-    return 0;
-  }
-
-  function isNonPaginationProfileUrl(parsed) {
-    const path = parsed.pathname || '';
-    if (/^\/members\/\d+\/?$/i.test(path)) return true;
-    if (/^\/users\/\d+\/?$/i.test(path)) return true;
-    if (/^\/profile\/\d+\/?$/i.test(path)) return true;
-
-    const hash = String(parsed.hash || '').replace(/^#/, '');
-    if (/^(videos|albums|favorites|favourites|comments|playlists|channels)$/i.test(hash)) return true;
-
-    return false;
-  }
-
-  function looksLikeSamePaginationBase(parsed) {
-    try {
-      const current = new URL(location.href);
-      if (parsed.origin !== current.origin) return false;
-
-      const targetBase = stripTrailingPageNumber(parsed.pathname);
-      const currentBase = stripTrailingPageNumber(current.pathname);
-
-      return targetBase === currentBase;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  function stripTrailingPageNumber(pathname) {
-    return String(pathname || '')
-      .replace(/\/\d{1,6}\/?$/, '/')
-      .replace(/\/+/g, '/')
-      .replace(/\/+$|^$/g, '/') || '/';
-  }
-
-  function refreshTotalPagesFromDocument() {
-    state.stats.totalPages = totalPageNumber(document);
-  }
-
-  function markPageCollected() {
-    state.stats.pagesCollected = Math.max(0, Number(state.stats.pagesCollected) || 0) + 1;
+    const value = Number(normalizeWhitespace(active && active.textContent));
+    return Number.isFinite(value) ? value : 0;
   }
 
   function waitForPageChange(oldSignature, oldHref) {
@@ -1554,16 +936,6 @@
 
   function pageSignature() {
     return extractPostUrls(document, location.href).join('|') || normalizeWhitespace(document.title);
-  }
-
-  function startSingleAutoDownload(task) {
-    if (!task || !task.videoUrl || task.status !== STATUS.READY) return;
-    if (state.settings.exportMode !== EXPORT_MODE.DIRECT) {
-      addLog('Auto download skipped: browser download mode is not selected.');
-      return;
-    }
-    addLog(`Auto downloading current video: ${task.filename}`);
-    downloadTask(task);
   }
 
   function startDownloads() {
@@ -1620,82 +992,26 @@
   function downloadTask(task) {
     task.status = STATUS.DOWNLOADING;
     task.error = '';
-    task.metaDownloadDone = false;
-    task.videoDownloadSubmitted = false;
-    task.videoDownloadDone = false;
-    task.metaDownloadedAt = '';
-    task.videoSubmittedAt = '';
-    task.videoDownloadedAt = '';
     state.activeDownloads += 1;
     persistState();
-    addLog(`Downloading meta first: ${replaceExtension(task.filename, '.meta.json')}`);
-    updateUi();
-
-    downloadMetaForTask(task)
-      .then(() => {
-        task.metaDownloadDone = true;
-        task.metaDownloadedAt = new Date().toISOString();
-        persistState();
-        updateUi();
-        addLog(`Meta done: ${replaceExtension(task.filename, '.meta.json')}`);
-        addLog(`Submitting video: ${task.filename}`);
-        downloadVideoForTask(task);
-      })
-      .catch((error) => {
-        finishDownload(task, false, `Meta download failed: ${messageOf(error)}`);
-      });
-  }
-
-  function downloadMetaForTask(task) {
-    const metaName = replaceExtension(task.filename, '.meta.json');
-    const metaText = JSON.stringify(buildTaskMetadata(task), null, 2);
-    return downloadTextFileByGM(metaName, metaText, 'application/json');
-  }
-
-  function downloadVideoForTask(task) {
-    task.videoDownloadSubmitted = true;
-    task.videoSubmittedAt = new Date().toISOString();
-    persistState();
+    addLog(`Downloading ${task.filename}`);
     updateUi();
 
     GM_download({
       url: task.videoUrl,
       name: task.filename,
       saveAs: false,
-      onload: () => {
-        task.videoDownloadDone = true;
-        task.videoDownloadedAt = new Date().toISOString();
-        finishDownload(task, Boolean(task.metaDownloadDone && task.videoDownloadDone));
-      },
+      onload: () => downloadMetaForTask(task),
       onerror: (error) => finishDownload(task, false, error && (error.error || error.details || error.toString())),
       ontimeout: () => finishDownload(task, false, 'Download timed out'),
     });
   }
 
-  function downloadTextFileByGM(filename, text, mime) {
-    return new Promise((resolve, reject) => {
-      const blob = new Blob([text], { type: `${mime};charset=utf-8` });
-      const url = URL.createObjectURL(blob);
-      const cleanup = () => setTimeout(() => URL.revokeObjectURL(url), 1000);
-
-      GM_download({
-        url,
-        name: filename,
-        saveAs: false,
-        onload: () => {
-          cleanup();
-          resolve();
-        },
-        onerror: (error) => {
-          cleanup();
-          reject(new Error(error && (error.error || error.details || error.toString()) || 'Download failed'));
-        },
-        ontimeout: () => {
-          cleanup();
-          reject(new Error('Download timed out'));
-        },
-      });
-    });
+  function downloadMetaForTask(task) {
+    const metaName = replaceExtension(task.filename, '.meta.json');
+    const metaText = JSON.stringify(buildTaskMetadata(task), null, 2);
+    downloadTextFile(metaName, metaText, 'application/json');
+    finishDownload(task, true);
   }
 
   function finishDownload(task, ok, errorText) {
@@ -1772,12 +1088,6 @@
       filename: task.filename,
       status: task.status,
       error: task.error,
-      metaDownloadDone: Boolean(task.metaDownloadDone),
-      videoDownloadSubmitted: Boolean(task.videoDownloadSubmitted),
-      videoDownloadDone: Boolean(task.videoDownloadDone),
-      metaDownloadedAt: task.metaDownloadedAt || '',
-      videoSubmittedAt: task.videoSubmittedAt || '',
-      videoDownloadedAt: task.videoDownloadedAt || '',
     };
   }
 
@@ -1790,8 +1100,8 @@
 
     state.tasks = [];
     state.seen = {};
-    state.stats = { currentPage: 1, pagesCollected: 0, totalPages: 0, captured: 0, success: 0, failed: 0, submitted: 0 };
-    state.collection = { active: false, stopped: true, startUrl: '', lastUrl: '', checkDuplicatesAfterWrap: false, wrapCount: 0 };
+    state.stats = { currentPage: 1, captured: 0, success: 0, failed: 0 };
+    state.collection = { active: false, stopped: true, startUrl: '', lastUrl: '' };
     state.downloading = false;
     state.downloadStopRequested = false;
     state.activeDownloads = 0;
@@ -1838,128 +1148,48 @@
   }
 
   function updateUi(statusText) {
-    if (!uiById('r34v-captured')) return;
+    if (!byId('r34v-captured')) return;
     if (statusText) addLog(statusText);
-    refreshTotalPagesFromDocument();
     const parseStats = getParseStats();
     state.stats.captured = parseStats.captured;
     state.stats.success = parseStats.success;
     state.stats.failed = parseStats.failed;
-    state.stats.submitted = parseStats.submitted;
 
     setText('r34v-captured', parseStats.captured);
     setText('r34v-resolved', parseStats.resolved);
-    setText('r34v-submitted', parseStats.submitted);
     setText('r34v-downloaded', parseStats.downloaded);
     setText('r34v-pages-collected', pagesCollected());
-    setText('r34v-total-pages', totalPages());
-
-    const logEl = uiById('r34v-log');
+    const logEl = byId('r34v-log');
     logEl.textContent = state.logLines.slice(-80).join('\n');
     logEl.scrollTop = logEl.scrollHeight;
 
-    ui.panel.classList.toggle('r34v-advanced-open', Boolean(state.settings.advancedOpen));
-    uiById('r34v-collect-current').disabled = state.fetching || state.collection.active;
-    uiById('r34v-collect-toggle').disabled = state.fetching && !state.collection.active;
-    uiById('r34v-collect-toggle').textContent = state.collection.active ? '停止采集' : '采集多页';
-    uiById('r34v-clear').disabled = state.fetching || state.downloading || state.collection.active;
-    uiById('r34v-download').disabled = !state.downloading && !state.tasks.some((task) => task.videoUrl);
-    uiById('r34v-download').textContent = state.downloading ? '停止下载' : '开始下载';
-    uiById('r34v-advanced-toggle').textContent = state.settings.advancedOpen ? '收起选项' : '高级选项';
+    byId(PANEL_ID).classList.toggle('r34v-advanced-open', Boolean(state.settings.advancedOpen));
+    byId('r34v-collect-current').disabled = state.fetching || state.collection.active;
+    byId('r34v-collect-toggle').disabled = state.fetching && !state.collection.active;
+    byId('r34v-collect-toggle').textContent = state.collection.active ? '停止连续采集' : '开始连续采集';
+    byId('r34v-clear').disabled = state.fetching || state.downloading || state.collection.active;
+    byId('r34v-download').disabled = !state.downloading && !state.tasks.some((task) => task.videoUrl);
+    byId('r34v-download').textContent = state.downloading ? '停止下载' : '开始下载';
+    byId('r34v-advanced-toggle').textContent = state.settings.advancedOpen ? '收起高级选项' : '高级选项';
   }
 
   function getParseStats() {
     const captured = state.tasks.length;
     const success = state.tasks.filter((task) => Boolean(task.videoUrl)).length;
     const failed = state.tasks.filter((task) => task.status === STATUS.FAILED && !task.videoUrl).length;
-    const submitted = state.tasks.filter((task) => Boolean(task.videoDownloadSubmitted)).length;
-    const downloaded = state.tasks.filter((task) => Boolean(task.metaDownloadDone && task.videoDownloadDone)).length;
+    const downloaded = state.tasks.filter((task) => task.status === STATUS.DONE).length;
     return {
       captured,
       success,
       failed,
       resolved: success + failed,
-      submitted,
       downloaded,
     };
   }
 
   function pagesCollected() {
-    return Math.max(0, Number(state.stats.pagesCollected) || 0);
-  }
-
-  function totalPages() {
-    return Math.max(0, Number(state.stats.totalPages) || 0);
-  }
-
-  function normalizeSettings(settings) {
-    const source = settings && typeof settings === 'object' ? settings : {};
-    const merged = { ...DEFAULT_SETTINGS, ...source };
-    merged.maxPages = clampInt(merged.maxPages, 1, 999, CONFIG.DEFAULT_MAX_PAGES);
-    merged.resolveConcurrency = clampInt(
-      merged.resolveConcurrency,
-      1,
-      CONFIG.MAX_RESOLVE_CONCURRENCY,
-      CONFIG.DEFAULT_RESOLVE_CONCURRENCY
-    );
-    merged.keepId = Boolean(merged.keepId);
-    merged.keepTitle = Boolean(merged.keepTitle);
-    merged.keepOriginal = Boolean(merged.keepOriginal);
-    merged.autoQueueSingle = Boolean(merged.autoQueueSingle);
-    merged.autoDownloadSingle = Boolean(merged.autoDownloadSingle);
-    merged.advancedOpen = Boolean(merged.advancedOpen);
-    if (!Object.values(EXPORT_MODE).includes(merged.exportMode)) merged.exportMode = DEFAULT_SETTINGS.exportMode;
-    if (!['best', '4320p', '2160p', '1080p', '720p', '480p', '360p'].includes(merged.quality)) {
-      merged.quality = DEFAULT_SETTINGS.quality;
-    }
-    return merged;
-  }
-
-  function saveSettingsNow() {
-    GM_setValue(SETTINGS_KEY, JSON.stringify(normalizeSettings(state.settings)));
-  }
-
-  function loadSettingsNow() {
-    let saved = null;
-    try {
-      saved = GM_getValue(SETTINGS_KEY, null);
-      if (typeof saved === 'string') saved = JSON.parse(saved);
-    } catch (_) {
-      saved = null;
-    }
-    if (!saved || typeof saved !== 'object') return;
-    state.settings = normalizeSettings({ ...state.settings, ...saved });
-  }
-
-  function bindSettingsSync() {
-    if (typeof GM_addValueChangeListener !== 'function') return;
-
-    GM_addValueChangeListener(SETTINGS_KEY, (_key, _oldValue, newValue, remote) => {
-      if (!remote) return;
-
-      let parsed = null;
-      try {
-        parsed = typeof newValue === 'string' ? JSON.parse(newValue) : newValue;
-      } catch (_) {
-        parsed = null;
-      }
-      if (!parsed || typeof parsed !== 'object') return;
-
-      applyingRemoteSettings = true;
-      state.settings = normalizeSettings({ ...state.settings, ...parsed });
-      applySettingsToUi();
-      state.tasks.forEach((task) => {
-        applyQualitySelection(task);
-        updateTaskFilename(task);
-      });
-      applyingRemoteSettings = false;
-
-      addLog('Settings synced from another tab.');
-      if (state.settings.autoQueueSingle) {
-        scheduleWatchedPageCheck('settings-sync');
-      }
-      updateUi();
-    });
+    if (!state.tasks.length && !state.collection.active) return 0;
+    return Math.max(0, state.stats.currentPage || 0);
   }
 
   function restoreState() {
@@ -1974,10 +1204,8 @@
 
     state.tasks = Array.isArray(saved.tasks) ? saved.tasks : [];
     state.seen = saved.seen && typeof saved.seen === 'object' ? saved.seen : {};
-    state.settings = normalizeSettings(saved.settings || state.settings);
+    state.settings = { ...DEFAULT_SETTINGS, ...(saved.settings || {}) };
     state.stats = { ...state.stats, ...(saved.stats || {}) };
-    state.stats.pagesCollected = Math.max(0, Number(state.stats.pagesCollected) || 0);
-    state.stats.totalPages = Math.max(0, Number(state.stats.totalPages) || 0);
     state.collection = { ...state.collection, ...(saved.collection || {}) };
     state.downloadStopRequested = false;
     state.downloading = false;
@@ -1987,27 +1215,11 @@
       if (task.status === STATUS.FETCHING || task.status === STATUS.DOWNLOADING) task.status = task.videoUrl ? STATUS.READY : STATUS.PENDING;
       task.metadata = task.metadata || {};
       task.availableQualities = task.availableQualities || [];
-      task.metaDownloadDone = Boolean(task.metaDownloadDone || task.status === STATUS.DONE);
-      task.videoDownloadSubmitted = Boolean(task.videoDownloadSubmitted || task.status === STATUS.DONE);
-      task.videoDownloadDone = Boolean(task.videoDownloadDone || task.status === STATUS.DONE);
-      task.metaDownloadedAt = task.metaDownloadedAt || '';
-      task.videoSubmittedAt = task.videoSubmittedAt || '';
-      task.videoDownloadedAt = task.videoDownloadedAt || '';
     });
   }
 
   function persistState() {
-    persistDirty = true;
-    clearTimeout(persistTimer);
-    persistTimer = setTimeout(persistStateNow, 250);
-  }
-
-  function persistStateNow() {
-    if (!persistDirty) return;
-    persistDirty = false;
-    clearTimeout(persistTimer);
     syncParseStats();
-    state.settings = normalizeSettings(state.settings);
     const snapshot = {
       tasks: state.tasks,
       seen: state.seen,
@@ -2024,7 +1236,6 @@
     state.stats.captured = parseStats.captured;
     state.stats.success = parseStats.success;
     state.stats.failed = parseStats.failed;
-    state.stats.submitted = parseStats.submitted;
   }
 
   function requestText(url) {
@@ -2288,11 +1499,9 @@
   }
 
   function setText(id, value) {
-    const el = uiById(id);
+    const el = byId(id);
     if (el) el.textContent = String(value);
   }
-
-  window.addEventListener('beforeunload', persistStateNow);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', main);

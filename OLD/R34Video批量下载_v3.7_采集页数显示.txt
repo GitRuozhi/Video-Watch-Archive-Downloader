@@ -2,8 +2,8 @@
 // @name         R34Video批量下载
 // @namespace    https://github.com/GitRuozhi
 // @license      MIT
-// @version      3.8
-// @description  批量下载、自动下载、自动跳页、保存元信息，支持YT-dlp，并行解析，监听子页面，跨标签页同步设置，循环采集与href/data页数统计
+// @version      3.7
+// @description  批量下载、自动下载、自动跳页、保存元信息，支持YT-dlp，并行解析，监听子页面，跨标签页同步设置，循环采集与页数统计
 // @author       GitRuozhi
 // @match        https://rule34video.com/*
 // @grant        GM_xmlhttpRequest
@@ -1367,19 +1367,8 @@
 
   function currentPageNumber(doc) {
     const active = doc.querySelector('[id*="pagination"] .active, .pagination .active, .page .active, .paging .active');
-    if (!active) return 0;
-
-    const activeLink = active.matches && active.matches('a') ? active : active.querySelector && active.querySelector('a');
-    if (activeLink) {
-      const fromData = pageNumberFromDataParameters(activeLink.getAttribute('data-parameters'));
-      if (fromData > 0) return fromData;
-
-      const fromHref = pageNumberFromHref(activeLink.getAttribute('href'));
-      if (fromHref > 0) return fromHref;
-    }
-
-    const value = Number(normalizeWhitespace(active.textContent));
-    return Number.isFinite(value) && value > 0 ? value : 0;
+    const value = Number(normalizeWhitespace(active && active.textContent));
+    return Number.isFinite(value) ? value : 0;
   }
 
   function totalPageNumber(doc) {
@@ -1402,17 +1391,14 @@
   }
 
   function paginationPageNumbers(doc) {
-    const roots = paginationRoots(doc);
+    const paginationRoots = Array.from(doc.querySelectorAll('[id*="pagination"], .pagination, .page, .paging'));
+    const roots = paginationRoots.length ? paginationRoots : [];
     const numbers = [];
 
     roots.forEach((root) => {
-      root.querySelectorAll('a, span, li, strong, em, b').forEach((node) => {
+      root.querySelectorAll('a[href], span, li, strong, em, b').forEach((node) => {
         const text = normalizeWhitespace(node.textContent);
         if (/^\d{1,6}$/.test(text)) numbers.push(Number(text));
-
-        const dataParams = node.getAttribute && node.getAttribute('data-parameters');
-        const dataNumber = pageNumberFromDataParameters(dataParams);
-        if (dataNumber > 0) numbers.push(dataNumber);
 
         const href = node.getAttribute && node.getAttribute('href');
         const hrefNumber = pageNumberFromHref(href);
@@ -1423,101 +1409,19 @@
     return numbers;
   }
 
-  function paginationRoots(doc) {
-    const roots = Array.from(doc.querySelectorAll('[id*="pagination"], .pagination, .page, .paging'));
-    return roots.length ? roots : [];
-  }
-
-  function pageNumberFromDataParameters(value) {
-    const text = String(value || '');
-    if (!text) return 0;
-
-    const patterns = [
-      /(?:^|[;,&])from_videos\s*:\s*0*(\d{1,6})(?=$|[;,&])/i,
-      /(?:^|[;,&])from_albums\s*:\s*0*(\d{1,6})(?=$|[;,&])/i,
-      /(?:^|[;,&])from\s*:\s*0*(\d{1,6})(?=$|[;,&])/i,
-      /(?:^|[;,&])page\s*:\s*0*(\d{1,6})(?=$|[;,&])/i,
-      /(?:^|[;,&])p\s*:\s*0*(\d{1,6})(?=$|[;,&])/i,
-    ];
-
-    for (const pattern of patterns) {
-      const match = text.match(pattern);
-      if (!match) continue;
-
-      const number = Number(match[1]);
-      if (Number.isFinite(number) && number > 0) return number;
-    }
-
-    return 0;
-  }
-
   function pageNumberFromHref(href) {
     if (!href) return 0;
     try {
       const parsed = new URL(href, location.href);
+      const pageParam = parsed.searchParams.get('page') || parsed.searchParams.get('p');
+      if (/^\d{1,6}$/.test(pageParam || '')) return Number(pageParam);
 
-      const pageParamKeys = ['page', 'p', 'pg'];
-      for (const key of pageParamKeys) {
-        const value = parsed.searchParams.get(key);
-        if (/^\d{1,6}$/.test(value || '')) return Number(value);
-      }
-
-      const dataParamKeys = ['from_videos', 'from_albums', 'from'];
-      for (const key of dataParamKeys) {
-        const value = parsed.searchParams.get(key);
-        if (/^\d{1,6}$/.test(value || '')) return Number(value);
-      }
-
-      const explicitPathMatch = parsed.pathname.match(/(?:\/page\/|\/p\/)(\d{1,6})(?:\/|$)/i);
-      if (explicitPathMatch) return Number(explicitPathMatch[1]);
-
-      if (isNonPaginationProfileUrl(parsed)) return 0;
-
-      const trailingMatch = parsed.pathname.match(/\/(\d{1,6})\/?$/);
-      if (!trailingMatch) return 0;
-
-      const pageNumber = Number(trailingMatch[1]);
-      if (!Number.isFinite(pageNumber) || pageNumber <= 0) return 0;
-      if (!looksLikeSamePaginationBase(parsed)) return 0;
-
-      return pageNumber;
+      const pathMatch = parsed.pathname.match(/(?:\/page\/|\/p\/)(\d{1,6})(?:\/|$)/i);
+      if (pathMatch) return Number(pathMatch[1]);
     } catch (_) {
       // Ignore invalid pagination URLs.
     }
     return 0;
-  }
-
-  function isNonPaginationProfileUrl(parsed) {
-    const path = parsed.pathname || '';
-    if (/^\/members\/\d+\/?$/i.test(path)) return true;
-    if (/^\/users\/\d+\/?$/i.test(path)) return true;
-    if (/^\/profile\/\d+\/?$/i.test(path)) return true;
-
-    const hash = String(parsed.hash || '').replace(/^#/, '');
-    if (/^(videos|albums|favorites|favourites|comments|playlists|channels)$/i.test(hash)) return true;
-
-    return false;
-  }
-
-  function looksLikeSamePaginationBase(parsed) {
-    try {
-      const current = new URL(location.href);
-      if (parsed.origin !== current.origin) return false;
-
-      const targetBase = stripTrailingPageNumber(parsed.pathname);
-      const currentBase = stripTrailingPageNumber(current.pathname);
-
-      return targetBase === currentBase;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  function stripTrailingPageNumber(pathname) {
-    return String(pathname || '')
-      .replace(/\/\d{1,6}\/?$/, '/')
-      .replace(/\/+/g, '/')
-      .replace(/\/+$|^$/g, '/') || '/';
   }
 
   function refreshTotalPagesFromDocument() {
