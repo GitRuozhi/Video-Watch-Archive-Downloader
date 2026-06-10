@@ -1,0 +1,55 @@
+R34 Video Watch Archive Downloader _ ZH
+
+描述：
+Rule34video视频批量下载，观看视频自动归档下载。支持同步下载简介、Tag等作品元信息。支持浏览器直接下载、链接导出、YT-DLP下载命令导出。
+
+介绍：
+- 功能1：rule34video视频批量下载。
+- 功能2：记录已看视频并自动进入队列。
+- 维护2个语言版本，英文版本和中文版本。
+- 支持搜索页、上传者页、用户页、收藏页等列表页采集。
+- 支持rule34video网站的伪跳转 AJAX 子页面。
+- 支持3种下载方式，浏览器直接下载、链接导出、YT-DLP下载命令导出。
+- 面板默认出现在视窗右下角，可以收缩为小按钮，可以鼠标拖动。
+- 点击[采集当前页]可以将页面显示所有视频加入队列。
+- 点击[采集多页]可以自动跳页，将多个页码的视频都加入队列。
+- 点击[开始下载]将会以选定方式下载，使用[浏览器下载模式]时，浏览器自带下载器可能不会及时显示下载进度，完成后会一次性显示下载完成。
+- 高级选项内有多项自定义调整。
+
+更新日志：
+V4.4：发布版本
+
+
+
+R34 Video Watch Archive Downloader
+
+Description : 
+Rule34video video bulk download, watched video automatically archive download. Support synchronous download introduction, Tag and other works meta-information. Support browser direct download, link export, YT-DLP download command export.
+ 
+Introduction : 
+
+- Function 1 : rule34video video bulk download. 
+
+- Function 2 : Record the watched video and enter the queue automatically. 
+
+- Maintains 2 language versions, English and Chinese versions. 
+
+- It supports search page, uploader page, user page, favorite page and other list page collection. 
+
+- Supports the rule34video website 's pseudo-jump AJAX subpage. 
+
+- Supports three download methods, browser direct download, link export, YT-DLP download command export. 
+
+- By default, the panel appears in the lower right corner of the window, which can be shrunk to a small button and dragged by the mouse. 
+
+- Click [ current ] to display all the videos on the page to join the queue. 
+
+- Clicking [ multi ] can automatically jump pages and add multiple page-numbered videos to the queue. 
+
+- Clicking [ start ] will be downloaded in a selected way. When using [ browser download mode ], the browser 's own downloader may not display the download progress in time, and the download will be completed at one time after completion. 
+
+- There are several custom adjustments in the advanced options. 
+ 
+ 
+Update log : 
+V4.4 : Release version

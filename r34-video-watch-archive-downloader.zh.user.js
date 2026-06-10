@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         R34Video 观看归档下载+自动批量下载
+// @name         R34 Video Watch Archive Downloader _ ZH
 // @namespace    https://github.com/GitRuozhi
 // @license      MIT
-// @version      4.2
-// @description  自动记录已看视频，支持批量采集、元信息保存、浏览器下载、直链导出和 YT-DLP 命令导出。
+// @version      4.4
+// @description  Rule34video视频批量下载，观看视频自动归档下载。支持同步下载简介、Tag等作品元信息。支持浏览器直接下载、链接导出、YT-DLP下载命令导出。
 // @author       GitRuozhi
 // @match        https://rule34video.com/*
 // @grant        GM_xmlhttpRequest
@@ -65,6 +65,7 @@
     keepOriginal: true,
     autoQueueSingle: true,
     autoDownloadSingle: false,
+    downloadMetadata: true,
     advancedOpen: false,
   };
 
@@ -76,10 +77,6 @@
       currentPage: 1,
       pagesCollected: 0,
       totalPages: 0,
-      captured: 0,
-      success: 0,
-      failed: 0,
-      submitted: 0,
     },
     collection: {
       active: false,
@@ -350,6 +347,7 @@
           <div class="r34v-row">
             <label><input type="checkbox" id="r34v-auto-queue">已看视频自动入队</label>
             <label><input type="checkbox" id="r34v-auto-download">入队自动下载</label>
+            <label><input type="checkbox" id="r34v-download-metadata">下载作品元信息</label>
           </div>
 
           <div class="r34v-row">
@@ -357,7 +355,7 @@
               <input id="r34v-resolve-concurrency" class="r34v-concurrency" type="number" min="1" max="8" step="1">
             </label>
             <span>一次性采集页数</span>
-            <input id="r34v-max-pages" class="r34v-max-pages" type="number" min="1" max="999" step="1">
+            <input id="r34v-max-pages" class="r34v-max-pages" type="number" min="1" max="64" step="1">
             <span></span>
           </div>
           <div class="r34v-row">
@@ -419,6 +417,7 @@
       'r34v-advanced-toggle',
       'r34v-auto-queue',
       'r34v-auto-download',
+      'r34v-download-metadata',
       'r34v-resolve-concurrency',
       'r34v-pages-collected',
       'r34v-total-pages',
@@ -452,6 +451,7 @@
       'r34v-keep-original',
       'r34v-auto-queue',
       'r34v-auto-download',
+      'r34v-download-metadata',
     ].forEach((id) => uiById(id).addEventListener('change', saveSettingsFromUi));
     uiById('r34v-resolve-concurrency').addEventListener('input', clampResolveConcurrencyInput);
   }
@@ -467,6 +467,7 @@
     uiById('r34v-keep-original').checked = state.settings.keepOriginal;
     uiById('r34v-auto-queue').checked = state.settings.autoQueueSingle;
     uiById('r34v-auto-download').checked = state.settings.autoDownloadSingle;
+    uiById('r34v-download-metadata').checked = state.settings.downloadMetadata;
   }
 
   function clampResolveConcurrencyInput() {
@@ -496,6 +497,7 @@
     state.settings.keepOriginal = uiById('r34v-keep-original').checked;
     state.settings.autoQueueSingle = uiById('r34v-auto-queue').checked;
     state.settings.autoDownloadSingle = uiById('r34v-auto-download').checked;
+    state.settings.downloadMetadata = uiById('r34v-download-metadata').checked;
 
     uiById('r34v-max-pages').value = String(maxPages);
     uiById('r34v-resolve-concurrency').value = String(resolveConcurrency);
@@ -904,17 +906,12 @@
     return result;
   }
 
-  async function addCurrentVideoPage(options = {}) {
+  async function addCurrentVideoPage() {
     if (!isVideoPage(location.href)) return false;
     const currentUrl = normalizeUrl(location.href);
     const added = addTask(currentUrl);
-    const task = findTaskByPostUrl(currentUrl);
     if (added) addLog('Current video queued.');
     await resolvePendingTasks([currentUrl]);
-
-    if (options.autoDownload && added && task && task.videoUrl && task.status === STATUS.READY) {
-      startSingleAutoDownload(task);
-    }
 
     persistState();
     updateUi();
@@ -947,6 +944,7 @@
       status: STATUS.PENDING,
       error: '',
       retries: 0,
+      downloadMetadataRequested: false,
       metaDownloadDone: false,
       videoDownloadSubmitted: false,
       videoDownloadDone: false,
@@ -958,7 +956,6 @@
 
     state.seen[key] = true;
     state.tasks.push(task);
-    state.stats.captured = state.tasks.length;
     persistState();
     return true;
   }
@@ -1047,11 +1044,6 @@
       availableQualities: qualities,
       metadata,
     };
-  }
-
-  function extractFlashvars(doc) {
-    const html = doc && doc.documentElement ? doc.documentElement.innerHTML : String(doc || '');
-    return extractFlashvarsFromHtml(html);
   }
 
   function extractFlashvarsFromHtml(html) {
@@ -1620,6 +1612,7 @@
   function downloadTask(task) {
     task.status = STATUS.DOWNLOADING;
     task.error = '';
+    task.downloadMetadataRequested = Boolean(state.settings.downloadMetadata);
     task.metaDownloadDone = false;
     task.videoDownloadSubmitted = false;
     task.videoDownloadDone = false;
@@ -1628,9 +1621,15 @@
     task.videoDownloadedAt = '';
     state.activeDownloads += 1;
     persistState();
-    addLog(`Downloading meta first: ${replaceExtension(task.filename, '.meta.json')}`);
     updateUi();
 
+    if (!task.downloadMetadataRequested) {
+      addLog(`Submitting video: ${task.filename}`);
+      downloadVideoForTask(task);
+      return;
+    }
+
+    addLog(`Downloading meta first: ${replaceExtension(task.filename, '.meta.json')}`);
     downloadMetaForTask(task)
       .then(() => {
         task.metaDownloadDone = true;
@@ -1665,11 +1664,15 @@
       onload: () => {
         task.videoDownloadDone = true;
         task.videoDownloadedAt = new Date().toISOString();
-        finishDownload(task, Boolean(task.metaDownloadDone && task.videoDownloadDone));
+        finishDownload(task, isTaskDownloadComplete(task));
       },
       onerror: (error) => finishDownload(task, false, error && (error.error || error.details || error.toString())),
       ontimeout: () => finishDownload(task, false, 'Download timed out'),
     });
+  }
+
+  function isTaskDownloadComplete(task) {
+    return Boolean(task.videoDownloadDone && (!task.downloadMetadataRequested || task.metaDownloadDone));
   }
 
   function downloadTextFileByGM(filename, text, mime) {
@@ -1772,6 +1775,7 @@
       filename: task.filename,
       status: task.status,
       error: task.error,
+      downloadMetadataRequested: Boolean(task.downloadMetadataRequested),
       metaDownloadDone: Boolean(task.metaDownloadDone),
       videoDownloadSubmitted: Boolean(task.videoDownloadSubmitted),
       videoDownloadDone: Boolean(task.videoDownloadDone),
@@ -1790,7 +1794,7 @@
 
     state.tasks = [];
     state.seen = {};
-    state.stats = { currentPage: 1, pagesCollected: 0, totalPages: 0, captured: 0, success: 0, failed: 0, submitted: 0 };
+    state.stats = { currentPage: 1, pagesCollected: 0, totalPages: 0 };
     state.collection = { active: false, stopped: true, startUrl: '', lastUrl: '', checkDuplicatesAfterWrap: false, wrapCount: 0 };
     state.downloading = false;
     state.downloadStopRequested = false;
@@ -1842,10 +1846,6 @@
     if (statusText) addLog(statusText);
     refreshTotalPagesFromDocument();
     const parseStats = getParseStats();
-    state.stats.captured = parseStats.captured;
-    state.stats.success = parseStats.success;
-    state.stats.failed = parseStats.failed;
-    state.stats.submitted = parseStats.submitted;
 
     setText('r34v-captured', parseStats.captured);
     setText('r34v-resolved', parseStats.resolved);
@@ -1873,7 +1873,7 @@
     const success = state.tasks.filter((task) => Boolean(task.videoUrl)).length;
     const failed = state.tasks.filter((task) => task.status === STATUS.FAILED && !task.videoUrl).length;
     const submitted = state.tasks.filter((task) => Boolean(task.videoDownloadSubmitted)).length;
-    const downloaded = state.tasks.filter((task) => Boolean(task.metaDownloadDone && task.videoDownloadDone)).length;
+    const downloaded = state.tasks.filter((task) => task.status === STATUS.DONE).length;
     return {
       captured,
       success,
@@ -1907,6 +1907,7 @@
     merged.keepOriginal = Boolean(merged.keepOriginal);
     merged.autoQueueSingle = Boolean(merged.autoQueueSingle);
     merged.autoDownloadSingle = Boolean(merged.autoDownloadSingle);
+    merged.downloadMetadata = Boolean(merged.downloadMetadata);
     merged.advancedOpen = Boolean(merged.advancedOpen);
     if (!Object.values(EXPORT_MODE).includes(merged.exportMode)) merged.exportMode = DEFAULT_SETTINGS.exportMode;
     if (!['best', '4320p', '2160p', '1080p', '720p', '480p', '360p'].includes(merged.quality)) {
@@ -1975,9 +1976,10 @@
     state.tasks = Array.isArray(saved.tasks) ? saved.tasks : [];
     state.seen = saved.seen && typeof saved.seen === 'object' ? saved.seen : {};
     state.settings = normalizeSettings(saved.settings || state.settings);
-    state.stats = { ...state.stats, ...(saved.stats || {}) };
-    state.stats.pagesCollected = Math.max(0, Number(state.stats.pagesCollected) || 0);
-    state.stats.totalPages = Math.max(0, Number(state.stats.totalPages) || 0);
+    const savedStats = saved.stats && typeof saved.stats === 'object' ? saved.stats : {};
+    state.stats.currentPage = Math.max(1, Number(savedStats.currentPage) || 1);
+    state.stats.pagesCollected = Math.max(0, Number(savedStats.pagesCollected) || 0);
+    state.stats.totalPages = Math.max(0, Number(savedStats.totalPages) || 0);
     state.collection = { ...state.collection, ...(saved.collection || {}) };
     state.downloadStopRequested = false;
     state.downloading = false;
@@ -1987,7 +1989,12 @@
       if (task.status === STATUS.FETCHING || task.status === STATUS.DOWNLOADING) task.status = task.videoUrl ? STATUS.READY : STATUS.PENDING;
       task.metadata = task.metadata || {};
       task.availableQualities = task.availableQualities || [];
-      task.metaDownloadDone = Boolean(task.metaDownloadDone || task.status === STATUS.DONE);
+      const hadMetaDownloadDone = Object.prototype.hasOwnProperty.call(task, 'metaDownloadDone');
+      const requestedMetadata = Object.prototype.hasOwnProperty.call(task, 'downloadMetadataRequested')
+        ? Boolean(task.downloadMetadataRequested)
+        : true;
+      task.downloadMetadataRequested = requestedMetadata;
+      task.metaDownloadDone = Boolean(task.metaDownloadDone || (!hadMetaDownloadDone && task.status === STATUS.DONE && requestedMetadata));
       task.videoDownloadSubmitted = Boolean(task.videoDownloadSubmitted || task.status === STATUS.DONE);
       task.videoDownloadDone = Boolean(task.videoDownloadDone || task.status === STATUS.DONE);
       task.metaDownloadedAt = task.metaDownloadedAt || '';
@@ -2006,7 +2013,6 @@
     if (!persistDirty) return;
     persistDirty = false;
     clearTimeout(persistTimer);
-    syncParseStats();
     state.settings = normalizeSettings(state.settings);
     const snapshot = {
       tasks: state.tasks,
@@ -2017,14 +2023,6 @@
       logLines: state.logLines.slice(-80),
     };
     GM_setValue(STORE_KEY, JSON.stringify(snapshot));
-  }
-
-  function syncParseStats() {
-    const parseStats = getParseStats();
-    state.stats.captured = parseStats.captured;
-    state.stats.success = parseStats.success;
-    state.stats.failed = parseStats.failed;
-    state.stats.submitted = parseStats.submitted;
   }
 
   function requestText(url) {

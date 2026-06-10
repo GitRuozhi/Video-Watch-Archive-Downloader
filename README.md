@@ -1,51 +1,52 @@
-# R34Video Watch Archive Downloader
+# R34 Video Watch Archive Downloader
 
 Tampermonkey userscript for archiving watched videos and batch downloading videos from `rule34video.com`.
 
-Current release: **v4.2**.
+Current release: **v4.4**.
 
 Chinese documentation: [README_ZH.md](README_ZH.md).
 
 ## Install
 
-1. Install Tampermonkey or another userscript manager.
-2. Open `r34video-watch-archive-downloader.user.js`.
-3. Create a new userscript and paste the file contents, or install it from the raw GitHub URL.
-4. Open a supported `rule34video.com` page.
+Install from SleazyFork:
+
+- English: https://sleazyfork.org/scripts/581996-r34-video-watch-archive-downloader
+- Chinese: https://sleazyfork.org/scripts/581999-r34-video-watch-archive-downloader-zh
+
+Open the project page and click install. This GitHub repository keeps the source code and release assets for development and review.
 
 ## Features
 
-- Primary English userscript with no Chinese UI text.
-- Compact English UI labels for the narrow floating panel.
-- Separate Chinese userscript for Chinese UI users.
+- English and Chinese UI scripts with matching behavior.
 - Automatically queue watched videos from real pages, AJAX pages, and pseudo-navigation.
-- Optional auto-download for newly queued watched videos.
 - Collect videos from search, uploader, user, favorites, and other list pages.
-- Continue multi-page collection across real page reloads.
-- Parse direct video URLs and available quality variants.
-- Select quality: best, 8K, 4K, 1080p, 720p, 480p, or 360p.
-- Browser download mode saves metadata JSON before submitting the video download.
-- Export direct-link TXT and metadata JSONL.
-- Export YT-DLP command TXT and metadata JSONL.
-- Configurable filename parts: ID, title, and original filename.
+- Resolve direct video URLs and available quality variants.
+- Choose quality: best, 8K, 4K, 1080p, 720p, 480p, or 360p.
+- Browser download mode can optionally save metadata JSON before submitting the video download.
+- Export direct-link TXT, YT-DLP command TXT, and metadata JSONL.
+- Configure filename parts: ID, title, and original filename.
 - Floating panel with queue, parse, submit, and download statistics.
 
-## Notes
+## Source Files
 
-- Browser downloads are handled by `GM_download`. Stopping the queue prevents new downloads from being submitted, but downloads already submitted to the browser or userscript manager may continue.
-- `Old/`, `Reference/`, and `Test/` are local material folders and are not uploaded to GitHub.
-- Root-level `Agent.md` is for AI agents. `README.md` is for human readers.
+- `r34-video-watch-archive-downloader.user.js`: English userscript.
+- `r34-video-watch-archive-downloader.zh.user.js`: Chinese userscript.
+- `Introduction_R34 Video Watch Archive Downloader.txt`: SleazyFork release introduction text.
+- `It01_EN.png` / `It02_ZH.png`: release screenshots.
+- `Agent.md`: short maintenance notes for coding agents.
 
-## Script Files
+## Release Notes
 
-English primary version:
+### v4.4
 
-```text
-r34video-watch-archive-downloader.user.js
-```
+- Added a default-on metadata download checkbox in advanced options.
+- Allowed browser download mode to skip metadata JSON and download only the video.
+- Counted video-only downloads as complete when the video finishes.
+- Updated both English and Chinese userscripts to 4.4.
 
-Chinese version:
+### v4.3
 
-```text
-r34video-watch-archive-downloader.zh.user.js
-```
+- Improved compact English collection labels.
+- Limited the max-pages input to 64 in both userscripts.
+- Removed unused helpers, dead auto-download wiring, and redundant persisted parse statistics.
+- Replaced `Agent.md` with concise maintenance notes for coding agents.
