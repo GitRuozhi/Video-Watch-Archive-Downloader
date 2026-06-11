@@ -2,7 +2,7 @@
 // @name         R34 Video Watch Archive Downloader _ ZH
 // @namespace    https://github.com/GitRuozhi
 // @license      MIT
-// @version      4.4
+// @version      4.6
 // @description  Rule34video视频批量下载，观看视频自动归档下载。支持同步下载简介、Tag等作品元信息。支持浏览器直接下载、链接导出、YT-DLP下载命令导出。
 // @author       GitRuozhi
 // @match        https://rule34video.com/*
@@ -90,6 +90,8 @@
     downloading: false,
     downloadStopRequested: false,
     activeDownloads: 0,
+    downloadRound: { success: 0 },
+    downloadStats: { success: 0, failed: 0 },
     logLines: [],
   };
 
@@ -97,6 +99,7 @@
   let persistTimer = 0;
   let persistDirty = false;
   let applyingRemoteSettings = false;
+  let autoDownloadTimer = 0;
 
   const watchedPage = {
     bound: false,
@@ -283,6 +286,17 @@
       overflow-wrap: anywhere;
       font-family: Arial, Helvetica, sans-serif;
     }
+    #${PANEL_ID} .r34v-progress {
+      display: none;
+      max-height: 52px;
+      overflow: hidden;
+      padding: 4px 5px;
+      margin-top: 4px;
+      color: #d8d8d8;
+      background: rgba(0, 0, 0, 0.34);
+      white-space: pre;
+      font-family: Arial, Helvetica, sans-serif;
+    }
     #${PANEL_ID} .r34v-download-mode {
       width: 80px;
     }
@@ -300,12 +314,13 @@
     bindSettings();
     bindSettingsSync();
     bindWatchedPageListeners();
-    addLog('Ready.');
+    addLog('就绪。');
     updateUi();
     scheduleWatchedPageCheck('initial-load');
+    scheduleAutoDownload('initial-load', CONFIG.WATCHED_PAGE_DELAY_MS);
 
     if (state.collection.active && !state.collection.stopped) {
-      addLog('Restored active collection after page change.');
+      addLog('页面切换后恢复未完成的采集。');
       setTimeout(() => collectCurrentThenAdvance(true), 500);
     }
   }
@@ -321,33 +336,35 @@
     panel.id = PANEL_ID;
     panel.innerHTML = `
       <div class="r34v-head">
-        <span class="r34v-stat">捕获<strong id="r34v-captured">0</strong>　</span>
-        <span class="r34v-stat">解析<strong id="r34v-resolved">0</strong>　</span>
-        <span class="r34v-stat">提交<strong id="r34v-submitted">0</strong>　</span>
-        <span class="r34v-stat">下载<strong id="r34v-downloaded">0</strong>　</span>
+        <span class="r34v-stat" title="已解析的项目">队列<strong id="r34v-captured">0</strong>　</span>
+        <span class="r34v-stat" title="当前正在下载">下载<strong id="r34v-resolved">0</strong>　</span>
+        <span class="r34v-stat" title="累计成功下载">成功<strong id="r34v-submitted">0</strong>　</span>
+        <span class="r34v-stat" title="累计最终失败">失败<strong id="r34v-downloaded">0</strong>　</span>
         <span class="r34v-spacer"></span>
-        <button type="button" id="r34v-toggle" class="r34v-toggle" title="展开/收缩">_</button>
+        <button type="button" id="r34v-toggle" class="r34v-toggle" title="展开面板/收缩面板">_</button>
       </div>
       <div class="r34v-body">
         <div class="r34v-row">
-        <button type="button" id="r34v-clear" class="r34v-panel-button">清除队列</button>
-          <button type="button" id="r34v-collect-current" class="r34v-panel-button">采集当前页</button>
-          <button type="button" id="r34v-collect-toggle" class="r34v-panel-button">采集多页</button>
+        <button type="button" id="r34v-clear" class="r34v-panel-button" title="清空队列、页数、日志和统计，不修改设置">初始化</button>
+          <button type="button" id="r34v-collect-current" class="r34v-panel-button" title="采集当前页面">采集当前页</button>
+          <button type="button" id="r34v-collect-toggle" class="r34v-panel-button" title="采集多个列表页">采集多页</button>
         </div>
         <div class="r34v-row">
-          <button type="button" id="r34v-download" class="r34v-panel-button">开始下载</button>
-          <button type="button" id="r34v-advanced-toggle" class="r34v-panel-button">高级选项</button>
+          <button type="button" id="r34v-download" class="r34v-panel-button" title="提交队列下载/停止提交下载">开始下载</button>
+          <button type="button" id="r34v-retry-failed" class="r34v-panel-button" title="重置失败任务后重新开始队列">再来一次</button>
+          <button type="button" id="r34v-advanced-toggle" class="r34v-panel-button" title="显示或隐藏高级选项">高级选项</button>
         </div>
+        <div class="r34v-progress" id="r34v-progress"></div>
         <div class="r34v-advanced" id="r34v-advanced">
 
 
         <div class="r34v-row">
-            <span>已采集 <strong id="r34v-pages-collected">0</strong>/<strong id="r34v-total-pages">0</strong> 页</span>
+            <span title="已完成采集的页数/查询到总页数">已采集 <strong id="r34v-pages-collected">0</strong>/<strong id="r34v-total-pages">0</strong> 页</span>
          </div>
           <div class="r34v-row">
-            <label><input type="checkbox" id="r34v-auto-queue">已看视频自动入队</label>
-            <label><input type="checkbox" id="r34v-auto-download">入队自动下载</label>
-            <label><input type="checkbox" id="r34v-download-metadata">下载作品元信息</label>
+            <label title="自动将已观看视频加入队列"><input type="checkbox" id="r34v-auto-queue">已看视频自动入队</label>
+            <label title="入队后自动启动队列下载"><input type="checkbox" id="r34v-auto-download">自动下载</label>
+            <label title="视频前先保存作品元信息 JSON"><input type="checkbox" id="r34v-download-metadata">下载作品元信息</label>
           </div>
 
           <div class="r34v-row">
@@ -393,7 +410,8 @@
 
     uiById('r34v-collect-current').addEventListener('click', () => collectCurrentOnly());
     uiById('r34v-collect-toggle').addEventListener('click', togglePageCollection);
-    uiById('r34v-download').addEventListener('click', startDownloads);
+    uiById('r34v-download').addEventListener('click', () => startDownloads());
+    uiById('r34v-retry-failed').addEventListener('click', retryFailedDownloads);
     uiById('r34v-clear').addEventListener('click', clearTasks);
     uiById('r34v-advanced-toggle').addEventListener('click', toggleAdvancedOptions);
     uiById('r34v-toggle').addEventListener('click', () => {
@@ -414,6 +432,7 @@
       'r34v-collect-current',
       'r34v-collect-toggle',
       'r34v-download',
+      'r34v-retry-failed',
       'r34v-advanced-toggle',
       'r34v-auto-queue',
       'r34v-auto-download',
@@ -428,6 +447,7 @@
       'r34v-keep-title',
       'r34v-keep-original',
       'r34v-log',
+      'r34v-progress',
     ].forEach((id) => {
       ui[id] = byId(id);
     });
@@ -510,6 +530,9 @@
     persistState();
     if (state.settings.autoQueueSingle) {
       scheduleWatchedPageCheck('settings');
+    }
+    if (state.settings.autoDownloadSingle) {
+      scheduleAutoDownload('settings');
     }
     updateUi();
   }
@@ -653,7 +676,7 @@
       watchedPage.lastHandledAt = now;
       await queueWatchedVideo(normalized, source || 'watch');
     } catch (error) {
-      addLog(`Auto queue check failed: ${messageOf(error)}`);
+      addLog(`自动入队检查失败：${messageOf(error)}`);
       updateUi();
     } finally {
       watchedPage.processing = false;
@@ -734,7 +757,7 @@
     if (!task) return false;
 
     if (wasAdded) {
-      addLog(`Auto queued watched video (${source}): ${normalized}`);
+      addLog(`已自动加入已看视频（${source}）：${normalized}`);
     }
 
     if (task.status === STATUS.PENDING) {
@@ -745,7 +768,7 @@
     if (!resolvedTask) return wasAdded;
 
     if (state.settings.autoDownloadSingle && resolvedTask.status === STATUS.READY && resolvedTask.videoUrl) {
-      startSingleAutoDownload(resolvedTask);
+      scheduleAutoDownload(`watched-${source}`, CONFIG.WATCHED_PAGE_DELAY_MS);
     }
 
     persistState();
@@ -758,6 +781,7 @@
     state.collection.active = false;
     state.collection.stopped = true;
     await collectCurrentPageVideos();
+    scheduleAutoDownload('current-collection');
     persistState();
   }
 
@@ -789,7 +813,7 @@
     state.collection.active = false;
     state.collection.stopped = true;
     state.fetching = false;
-    addLog('Stopped.');
+    addLog('已停止。');
     persistState();
     updateUi();
   }
@@ -804,20 +828,22 @@
       if (collectResult && collectResult.duplicates > 0) {
         state.collection.active = false;
         state.collection.stopped = true;
-        addLog(`Duplicate found after wrapping to first page: ${collectResult.duplicates}. Collection stopped.`);
+        addLog(`回到第一页后发现重复项目：${collectResult.duplicates}。采集已停止。`);
+        scheduleAutoDownload('collection-finished');
         persistState();
         persistStateNow();
-        updateUi('Collection stopped: duplicate found after wrap.');
+        updateUi('采集已停止：回到第一页后发现重复项目。');
         return;
       }
-      addLog('No duplicates found after wrapping to first page; continuing collection.');
+      addLog('回到第一页后未发现重复项目，继续采集。');
     }
 
     if (state.stats.currentPage >= state.settings.maxPages) {
       state.collection.active = false;
-      addLog(`Reached max pages: ${state.settings.maxPages}.`);
+      addLog(`已达到最大采集页数：${state.settings.maxPages}。`);
+      scheduleAutoDownload('collection-finished');
       persistState();
-      updateUi('Collection finished.');
+      updateUi('采集完成。');
       return;
     }
 
@@ -827,9 +853,10 @@
       nextLink = findFirstPageLink(document);
       if (!nextLink) {
         state.collection.active = false;
-        addLog('No next page or first page link found.');
+        addLog('没有找到下一页或第一页链接。');
+        scheduleAutoDownload('collection-finished');
         persistState();
-        updateUi('Collection finished.');
+        updateUi('采集完成。');
         return;
       }
       wrappedToFirst = true;
@@ -842,9 +869,9 @@
     persistState();
     persistStateNow();
     addLog(wrappedToFirst
-      ? `Last page reached; jumping to first page (${state.stats.currentPage}/${state.settings.maxPages}).`
-      : `Clicking next page (${state.stats.currentPage}/${state.settings.maxPages}).`);
-    updateUi(wrappedToFirst ? 'Jumping to first page...' : 'Waiting for next page...');
+      ? `已到末页，跳回第一页（${state.stats.currentPage}/${state.settings.maxPages}）。`
+      : `正在点击下一页（${state.stats.currentPage}/${state.settings.maxPages}）。`);
+    updateUi(wrappedToFirst ? '正在跳回第一页...' : '正在等待下一页...');
     await clickNextAndContinue(nextLink, restored);
   }
 
@@ -855,10 +882,11 @@
 
     const changed = await waitForPageChange(oldSignature, oldHref);
     if (!changed) {
-      addLog('Next page click did not change the list before timeout.');
+      addLog('点击下一页后列表未在超时前变化。');
       state.collection.active = false;
+      scheduleAutoDownload('collection-finished');
       persistState();
-      updateUi('Collection stopped.');
+      updateUi('采集已停止。');
       return;
     }
 
@@ -871,7 +899,7 @@
     if (state.fetching) return result;
     state.fetching = true;
     saveSettingsFromUi();
-    updateUi('Collecting current page...');
+    updateUi('正在采集当前页...');
 
     try {
       if (isVideoPage(location.href)) {
@@ -888,16 +916,16 @@
         result.found = urls.length;
         result.added = added;
         result.duplicates = Math.max(0, urls.length - added);
-        addLog(`Page ${state.stats.currentPage}: found ${urls.length}, added ${added}, duplicate ${result.duplicates}.`);
+        addLog(`第 ${state.stats.currentPage} 页：发现 ${urls.length} 个，新增 ${added} 个，重复 ${result.duplicates} 个。`);
       }
 
       await resolvePendingTasks();
       markPageCollected();
-      updateUi('Current page collected.');
+      updateUi('当前页采集完成。');
     } catch (error) {
       result.failed = true;
-      addLog(`Collect failed: ${messageOf(error)}`);
-      updateUi('Collect failed.');
+      addLog(`采集失败：${messageOf(error)}`);
+      updateUi('采集失败。');
     } finally {
       state.fetching = false;
       persistState();
@@ -910,7 +938,7 @@
     if (!isVideoPage(location.href)) return false;
     const currentUrl = normalizeUrl(location.href);
     const added = addTask(currentUrl);
-    if (added) addLog('Current video queued.');
+    if (added) addLog('当前视频已加入队列。');
     await resolvePendingTasks([currentUrl]);
 
     persistState();
@@ -951,6 +979,11 @@
       metaDownloadedAt: '',
       videoSubmittedAt: '',
       videoDownloadedAt: '',
+      videoBytesLoaded: 0,
+      videoBytesTotal: 0,
+      videoProgressAt: '',
+      videoSpeedBps: 0,
+      finalFailureCounted: false,
       capturedAt: new Date().toISOString(),
     };
 
@@ -999,7 +1032,7 @@
         : await requestText(task.postUrl);
       const doc = parseHtml(html);
       const resolved = resolveVideoFromDocument(doc, task.postUrl);
-      if (!resolved.videoUrl) throw new Error('No direct video URL found');
+      if (!resolved.videoUrl) throw new Error('未找到视频直链');
 
       task.videoUrl = resolved.videoUrl;
       task.title = resolved.title || task.title || extractTitle(doc);
@@ -1014,12 +1047,12 @@
       task.status = STATUS.READY;
 
       if (state.settings.quality !== 'best' && task.selectedQuality !== state.settings.quality) {
-        addLog(`Quality fallback: ${task.postId} ${displayQuality(state.settings.quality)} -> ${displayQuality(task.selectedQuality) || 'best available'}.`);
+        addLog(`清晰度降级：${task.postId} ${displayQuality(state.settings.quality)} -> ${displayQuality(task.selectedQuality) || '可用最佳'}。`);
       }
     } catch (error) {
       task.status = STATUS.FAILED;
       task.error = messageOf(error);
-      addLog(`Resolve failed: ${task.postUrl} - ${task.error}`);
+      addLog(`解析失败：${task.postUrl} - ${task.error}`);
     }
 
     persistState();
@@ -1517,7 +1550,10 @@
   }
 
   function markPageCollected() {
-    state.stats.pagesCollected = Math.max(0, Number(state.stats.pagesCollected) || 0) + 1;
+    const current = Math.max(0, Number(state.stats.pagesCollected) || 0);
+    const total = totalPages() || Math.max(0, Number(state.settings.maxPages) || 0);
+    const next = current + 1;
+    state.stats.pagesCollected = total ? Math.min(next, total) : next;
   }
 
   function waitForPageChange(oldSignature, oldHref) {
@@ -1548,19 +1584,20 @@
     return extractPostUrls(document, location.href).join('|') || normalizeWhitespace(document.title);
   }
 
-  function startSingleAutoDownload(task) {
-    if (!task || !task.videoUrl || task.status !== STATUS.READY) return;
-    if (state.settings.exportMode !== EXPORT_MODE.DIRECT) {
-      addLog('Auto download skipped: browser download mode is not selected.');
-      return;
-    }
-    addLog(`Auto downloading current video: ${task.filename}`);
-    downloadTask(task);
+  function scheduleAutoDownload(reason, delayMs = 0) {
+    if (!state.settings.autoDownloadSingle) return;
+    clearTimeout(autoDownloadTimer);
+    autoDownloadTimer = setTimeout(() => {
+      autoDownloadTimer = 0;
+      if (!state.settings.autoDownloadSingle || state.downloading || state.fetching || state.collection.active) return;
+      if (!state.tasks.some(isDownloadableTask)) return;
+      startDownloads('auto');
+    }, delayMs);
   }
 
-  function startDownloads() {
+  function startDownloads(source = 'manual') {
     if (state.downloading) {
-      stopDownloads();
+      if (source === 'manual') stopDownloads();
       return;
     }
     saveSettingsFromUi();
@@ -1570,16 +1607,32 @@
     }
     state.downloadStopRequested = false;
     state.downloading = true;
-    addLog('Browser download queue started.');
+    state.downloadRound = { success: 0 };
+    addLog('浏览器下载队列已开始。');
     persistState();
     updateUi();
     pumpDownloads();
   }
 
+  function retryFailedDownloads() {
+    if (state.downloading || state.fetching || state.collection.active) return;
+    saveSettingsFromUi();
+    const retryCount = resetFailedTasksForRetry();
+    if (!retryCount) {
+      addLog('没有失败下载需要重试。');
+      updateUi();
+      return;
+    }
+    addLog(`重新下载失败项：${retryCount}。`);
+    persistState();
+    updateUi();
+    startDownloads('retry');
+  }
+
   function stopDownloads() {
     state.downloading = false;
     state.downloadStopRequested = true;
-    addLog('Download queue stop requested. Active browser downloads may still finish.');
+    addLog('已停止继续提交队列，正在下载的任务可能仍会在浏览器中继续。');
     persistState();
     updateUi();
   }
@@ -1588,22 +1641,29 @@
     if (!state.downloading || state.downloadStopRequested) return;
 
     while (state.activeDownloads < CONFIG.DOWNLOAD_CONCURRENCY) {
-      const task = nextDownloadTask();
+      const task = nextDownloadTask({ logRetry: true });
       if (!task) break;
       downloadTask(task);
     }
 
     if (state.activeDownloads === 0 && !nextDownloadTask()) {
-      state.downloading = false;
-      state.downloadStopRequested = false;
-      addLog('Browser download queue finished.');
-      persistState();
-      updateUi();
+      finishDownloadRound();
     }
   }
 
-  function nextDownloadTask() {
-    return state.tasks.find((task) => (
+  function nextDownloadTask(options = {}) {
+    const task = state.tasks.find((item) => (
+      item.status === STATUS.READY ||
+      (item.status === STATUS.FAILED && item.videoUrl && item.retries <= CONFIG.RETRY_LIMIT)
+    ));
+    if (task && options.logRetry && task.status === STATUS.FAILED) {
+      addLog(`自动重试 ${task.retries}/${CONFIG.RETRY_LIMIT}：${task.filename}`);
+    }
+    return task;
+  }
+
+  function isDownloadableTask(task) {
+    return Boolean(task && task.videoUrl && (
       task.status === STATUS.READY ||
       (task.status === STATUS.FAILED && task.videoUrl && task.retries <= CONFIG.RETRY_LIMIT)
     ));
@@ -1613,35 +1673,33 @@
     task.status = STATUS.DOWNLOADING;
     task.error = '';
     task.downloadMetadataRequested = Boolean(state.settings.downloadMetadata);
-    task.metaDownloadDone = false;
     task.videoDownloadSubmitted = false;
     task.videoDownloadDone = false;
-    task.metaDownloadedAt = '';
     task.videoSubmittedAt = '';
     task.videoDownloadedAt = '';
     state.activeDownloads += 1;
     persistState();
     updateUi();
 
-    if (!task.downloadMetadataRequested) {
-      addLog(`Submitting video: ${task.filename}`);
+    if (!task.downloadMetadataRequested || task.metaDownloadDone) {
+      addLog(`正在提交视频：${task.filename}`);
       downloadVideoForTask(task);
       return;
     }
 
-    addLog(`Downloading meta first: ${replaceExtension(task.filename, '.meta.json')}`);
+    addLog(`先下载元信息：${replaceExtension(task.filename, '.meta.json')}`);
     downloadMetaForTask(task)
       .then(() => {
         task.metaDownloadDone = true;
         task.metaDownloadedAt = new Date().toISOString();
         persistState();
         updateUi();
-        addLog(`Meta done: ${replaceExtension(task.filename, '.meta.json')}`);
-        addLog(`Submitting video: ${task.filename}`);
+        addLog(`元信息完成：${replaceExtension(task.filename, '.meta.json')}`);
+        addLog(`正在提交视频：${task.filename}`);
         downloadVideoForTask(task);
       })
       .catch((error) => {
-        finishDownload(task, false, `Meta download failed: ${messageOf(error)}`);
+        finishDownload(task, false, `元信息下载失败：${messageOf(error)}`);
       });
   }
 
@@ -1652,6 +1710,7 @@
   }
 
   function downloadVideoForTask(task) {
+    resetDownloadProgress(task);
     task.videoDownloadSubmitted = true;
     task.videoSubmittedAt = new Date().toISOString();
     persistState();
@@ -1666,9 +1725,86 @@
         task.videoDownloadedAt = new Date().toISOString();
         finishDownload(task, isTaskDownloadComplete(task));
       },
+      onprogress: (event) => updateVideoProgress(task, event),
       onerror: (error) => finishDownload(task, false, error && (error.error || error.details || error.toString())),
       ontimeout: () => finishDownload(task, false, 'Download timed out'),
     });
+  }
+
+  function resetDownloadProgress(task) {
+    task.videoBytesLoaded = 0;
+    task.videoBytesTotal = 0;
+    task.videoProgressAt = '';
+    task.videoSpeedBps = 0;
+  }
+
+  function countFinalFailure(task) {
+    if (task.finalFailureCounted) return;
+    state.downloadStats.failed += 1;
+    task.finalFailureCounted = true;
+  }
+
+  function updateVideoProgress(task, event) {
+    const now = Date.now();
+    const loaded = Math.max(0, Number(event && event.loaded) || 0);
+    const rawTotal = Math.max(0, Number(event && event.total) || 0);
+    const total = event && event.lengthComputable === false ? 0 : rawTotal;
+    const previousLoaded = Math.max(0, Number(task.videoBytesLoaded) || 0);
+    const previousAt = Number(task.videoProgressAt) || 0;
+
+    if (previousAt && loaded >= previousLoaded) {
+      const seconds = (now - previousAt) / 1000;
+      if (seconds > 0) {
+        task.videoSpeedBps = (loaded - previousLoaded) / seconds;
+      }
+    }
+
+    task.videoBytesLoaded = loaded;
+    task.videoBytesTotal = total;
+    task.videoProgressAt = now;
+    updateUi();
+  }
+
+  function buildActiveProgressLines() {
+    return state.tasks
+      .filter((task) => task.status === STATUS.DOWNLOADING && task.videoDownloadSubmitted)
+      .map(buildProgressLine);
+  }
+
+  function buildProgressLine(task) {
+    const loaded = Math.max(0, Number(task.videoBytesLoaded) || 0);
+    const total = Math.max(0, Number(task.videoBytesTotal) || 0);
+    const speed = Math.max(0, Number(task.videoSpeedBps) || 0);
+    const percent = total ? `${Math.min(100, Math.floor((loaded / total) * 100))}%` : '--%';
+    const totalText = total ? formatCompactBytes(total) : '?';
+    const eta = total && speed > 0 ? formatCompactEta((total - loaded) / speed) : '--:--';
+    return `${compactFilename(task.filename, 11)}|${percent}|${formatCompactBytes(loaded)}/${totalText}|${formatCompactSpeed(speed)}|${eta}`;
+  }
+
+  function formatCompactBytes(bytes) {
+    const value = Math.max(0, Number(bytes) || 0);
+    if (value >= 1073741824) return `${Math.round(value / 1073741824)}G`;
+    if (value >= 1048576) return `${Math.round(value / 1048576)}M`;
+    if (value >= 1024) return `${Math.round(value / 1024)}K`;
+    return `${Math.round(value)}B`;
+  }
+
+  function formatCompactSpeed(bytesPerSecond) {
+    return `${formatCompactBytes(bytesPerSecond)}/s`;
+  }
+
+  function formatCompactEta(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) return '--:--';
+    const total = Math.ceil(seconds);
+    const minutes = Math.floor(total / 60);
+    const remainder = total % 60;
+    return `${minutes}:${String(remainder).padStart(2, '0')}`;
+  }
+
+  function compactFilename(filename, maxLength) {
+    const text = String(filename || '');
+    if (text.length <= maxLength) return text;
+    return `${text.slice(0, Math.max(1, maxLength - 3))}...`;
   }
 
   function isTaskDownloadComplete(task) {
@@ -1704,12 +1840,16 @@
   function finishDownload(task, ok, errorText) {
     if (ok) {
       task.status = STATUS.DONE;
-      addLog(errorText ? `Download done: ${task.filename}; ${errorText}` : `Download done: ${task.filename}`);
+      addLog(errorText ? `下载完成：${task.filename}；${errorText}` : `下载完成：${task.filename}`);
+      state.downloadRound.success += 1;
+      state.downloadStats.success += 1;
+      removeCompletedTask(task);
     } else {
       task.retries += 1;
       task.status = STATUS.FAILED;
-      task.error = errorText || 'Download failed';
-      addLog(`Download failed: ${task.filename} - ${task.error}`);
+      task.error = errorText || '下载失败';
+      if (task.retries > CONFIG.RETRY_LIMIT) countFinalFailure(task);
+      addLog(`下载失败：${task.filename} - ${task.error}`);
     }
 
     state.activeDownloads = Math.max(0, state.activeDownloads - 1);
@@ -1720,12 +1860,54 @@
     }
   }
 
+  function finishDownloadRound() {
+    const doneCount = state.downloadRound.success || 0;
+    const failedCount = state.tasks.filter((task) => task.status === STATUS.FAILED && task.videoUrl).length;
+
+    state.downloading = false;
+    state.downloadStopRequested = false;
+    addLog(`下载轮次完成：成功 ${doneCount}，失败 ${failedCount}。`);
+    persistState();
+    updateUi();
+  }
+
+  function removeCompletedTask(task) {
+    const index = state.tasks.indexOf(task);
+    if (index >= 0) state.tasks.splice(index, 1);
+    rebuildSeenFromTasks();
+  }
+
+  function rebuildSeenFromTasks() {
+    state.seen = {};
+    state.tasks.forEach((task) => {
+      state.seen[task.key || (task.postId ? `id:${task.postId}` : normalizeUrl(task.postUrl))] = true;
+    });
+  }
+
+  function resetFailedTasksForRetry() {
+    let count = 0;
+    state.tasks.forEach((task) => {
+      if (task.status !== STATUS.FAILED || !task.videoUrl) return;
+      task.status = STATUS.READY;
+      task.retries = 0;
+      task.error = '';
+      task.videoDownloadSubmitted = false;
+      task.videoDownloadDone = false;
+      task.videoSubmittedAt = '';
+      task.videoDownloadedAt = '';
+      resetDownloadProgress(task);
+      task.finalFailureCounted = false;
+      count += 1;
+    });
+    return count;
+  }
+
   function saveOutputFiles() {
     const stamp = timestampForFile();
     const mainText = buildExportText();
     const metaText = buildMetaJsonl();
     if (!mainText && !metaText) {
-      addLog('No resolved videos to output.');
+      addLog('没有已解析的视频可输出。');
       updateUi();
       return;
     }
@@ -1741,7 +1923,7 @@
       downloadTextFile(`r34video-meta-${stamp}.jsonl`, metaText, 'application/json');
     }
 
-    addLog(state.settings.exportMode === EXPORT_MODE.YTDLP ? 'YT-DLP output files saved.' : 'Direct link output files saved.');
+    addLog(state.settings.exportMode === EXPORT_MODE.YTDLP ? 'YT-DLP 输出文件已保存。' : '直链输出文件已保存。');
     updateUi();
   }
 
@@ -1787,7 +1969,7 @@
 
   function clearTasks() {
     if (state.downloading || state.fetching || state.collection.active) {
-      addLog('Stop current work before clearing queue.');
+      addLog('请先停止当前任务再初始化。');
       updateUi();
       return;
     }
@@ -1799,9 +1981,13 @@
     state.downloading = false;
     state.downloadStopRequested = false;
     state.activeDownloads = 0;
+    state.downloadRound = { success: 0 };
+    state.downloadStats = { success: 0, failed: 0 };
     state.logLines = [];
+    clearTimeout(autoDownloadTimer);
+    autoDownloadTimer = 0;
     GM_deleteValue(STORE_KEY);
-    addLog('Queue cleared.');
+    addLog('已初始化。');
     updateUi();
   }
 
@@ -1858,29 +2044,43 @@
     logEl.textContent = state.logLines.slice(-80).join('\n');
     logEl.scrollTop = logEl.scrollHeight;
 
+    const progressEl = uiById('r34v-progress');
+    const progressLines = buildActiveProgressLines();
+    progressEl.textContent = progressLines.join('\n');
+    progressEl.style.display = progressLines.length ? 'block' : 'none';
+
     ui.panel.classList.toggle('r34v-advanced-open', Boolean(state.settings.advancedOpen));
     uiById('r34v-collect-current').disabled = state.fetching || state.collection.active;
     uiById('r34v-collect-toggle').disabled = state.fetching && !state.collection.active;
     uiById('r34v-collect-toggle').textContent = state.collection.active ? '停止采集' : '采集多页';
     uiById('r34v-clear').disabled = state.fetching || state.downloading || state.collection.active;
-    uiById('r34v-download').disabled = !state.downloading && !state.tasks.some((task) => task.videoUrl);
-    uiById('r34v-download').textContent = state.downloading ? '停止下载' : '开始下载';
+    const downloadDisabled = state.downloading
+      ? false
+      : (state.settings.autoDownloadSingle || state.activeDownloads > 0 || !state.tasks.some((task) => task.videoUrl));
+    uiById('r34v-download').disabled = downloadDisabled;
+    uiById('r34v-download').textContent = state.downloading ? '停止提交' : '开始下载';
+    uiById('r34v-download').title = state.downloading
+      ? '停止继续提交新下载，已提交到浏览器的下载可能继续'
+      : '开始提交队列下载';
+    uiById('r34v-retry-failed').disabled = state.downloading || state.fetching || state.collection.active || !state.tasks.some((task) => task.status === STATUS.FAILED);
     uiById('r34v-advanced-toggle').textContent = state.settings.advancedOpen ? '收起选项' : '高级选项';
   }
 
   function getParseStats() {
-    const captured = state.tasks.length;
-    const success = state.tasks.filter((task) => Boolean(task.videoUrl)).length;
-    const failed = state.tasks.filter((task) => task.status === STATUS.FAILED && !task.videoUrl).length;
-    const submitted = state.tasks.filter((task) => Boolean(task.videoDownloadSubmitted)).length;
-    const downloaded = state.tasks.filter((task) => task.status === STATUS.DONE).length;
+    const queue = state.tasks.filter((task) => Boolean(task.videoUrl)).length;
+    const active = Math.max(
+      Math.max(0, Number(state.activeDownloads) || 0),
+      state.tasks.filter((task) => task.status === STATUS.DOWNLOADING).length
+    );
+    const success = Math.max(0, Number(state.downloadStats.success) || 0);
+    const failed = Math.max(0, Number(state.downloadStats.failed) || 0);
     return {
-      captured,
+      captured: queue,
       success,
       failed,
-      resolved: success + failed,
-      submitted,
-      downloaded,
+      resolved: active,
+      submitted: success,
+      downloaded: failed,
     };
   }
 
@@ -1955,9 +2155,12 @@
       });
       applyingRemoteSettings = false;
 
-      addLog('Settings synced from another tab.');
+      addLog('设置已从其他标签页同步。');
       if (state.settings.autoQueueSingle) {
         scheduleWatchedPageCheck('settings-sync');
+      }
+      if (state.settings.autoDownloadSingle) {
+        scheduleAutoDownload('settings-sync');
       }
       updateUi();
     });
@@ -1981,12 +2184,30 @@
     state.stats.pagesCollected = Math.max(0, Number(savedStats.pagesCollected) || 0);
     state.stats.totalPages = Math.max(0, Number(savedStats.totalPages) || 0);
     state.collection = { ...state.collection, ...(saved.collection || {}) };
+    const hasSavedDownloadStats = Boolean(saved.downloadStats && typeof saved.downloadStats === 'object');
+    const savedDownloadStats = hasSavedDownloadStats ? saved.downloadStats : {};
+    state.downloadStats.success = Math.max(0, Number(savedDownloadStats.success) || 0);
+    state.downloadStats.failed = Math.max(0, Number(savedDownloadStats.failed) || 0);
     state.downloadStopRequested = false;
     state.downloading = false;
     state.activeDownloads = 0;
     state.logLines = Array.isArray(saved.logLines) ? saved.logLines.slice(-80) : [];
     state.tasks.forEach((task) => {
-      if (task.status === STATUS.FETCHING || task.status === STATUS.DOWNLOADING) task.status = task.videoUrl ? STATUS.READY : STATUS.PENDING;
+      const restoredDownloading = task.status === STATUS.DOWNLOADING;
+      if (task.status === STATUS.FETCHING) task.status = STATUS.PENDING;
+      if (restoredDownloading) {
+        if (task.videoUrl) {
+          task.status = STATUS.FAILED;
+          task.error = 'Page reloaded during active download; previous browser download may still finish.';
+          task.retries = CONFIG.RETRY_LIMIT + 1;
+          task.videoDownloadSubmitted = false;
+          task.videoDownloadDone = false;
+          resetDownloadProgress(task);
+          countFinalFailure(task);
+        } else {
+          task.status = STATUS.PENDING;
+        }
+      }
       task.metadata = task.metadata || {};
       task.availableQualities = task.availableQualities || [];
       const hadMetaDownloadDone = Object.prototype.hasOwnProperty.call(task, 'metaDownloadDone');
@@ -2000,7 +2221,20 @@
       task.metaDownloadedAt = task.metaDownloadedAt || '';
       task.videoSubmittedAt = task.videoSubmittedAt || '';
       task.videoDownloadedAt = task.videoDownloadedAt || '';
+      task.videoBytesLoaded = Math.max(0, Number(task.videoBytesLoaded) || 0);
+      task.videoBytesTotal = Math.max(0, Number(task.videoBytesTotal) || 0);
+      task.videoProgressAt = task.videoProgressAt || '';
+      task.videoSpeedBps = Math.max(0, Number(task.videoSpeedBps) || 0);
+      task.finalFailureCounted = Boolean(
+        task.finalFailureCounted ||
+        (!hasSavedDownloadStats && task.status === STATUS.FAILED && task.videoUrl && task.retries > CONFIG.RETRY_LIMIT)
+      );
     });
+    state.tasks = state.tasks.filter((task) => task.status !== STATUS.DONE);
+    if (!hasSavedDownloadStats) {
+      state.downloadStats.failed = state.tasks.filter((task) => task.finalFailureCounted).length;
+    }
+    rebuildSeenFromTasks();
   }
 
   function persistState() {
@@ -2020,6 +2254,7 @@
       settings: state.settings,
       stats: state.stats,
       collection: state.collection,
+      downloadStats: state.downloadStats,
       logLines: state.logLines.slice(-80),
     };
     GM_setValue(STORE_KEY, JSON.stringify(snapshot));
