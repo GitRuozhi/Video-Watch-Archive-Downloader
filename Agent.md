@@ -9,8 +9,8 @@ video URLs, and supports browser downloads plus link/YT-DLP exports.
 - `r34-video-watch-archive-downloader.user.js`: primary English UI script.
 - `r34-video-watch-archive-downloader.zh.user.js`: Chinese UI script.
 - `README.md` / `README_ZH.md`: user-facing docs and release notes.
-- `Introduction_R34 Video Watch Archive Downloader.txt`: SleazyFork release text.
-- `It01_EN.png` / `It02_ZH.png`: release screenshots.
+- `Intro.MD` / `Intro_ZH.MD`: SleazyFork release text.
+- `Intro01_EN.png` / `Intro02_ZH.png`: release screenshots.
 
 ## Bilingual Maintenance
 

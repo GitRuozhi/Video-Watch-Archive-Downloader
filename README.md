@@ -31,7 +31,7 @@ Open the project page and click install. This GitHub repository keeps the source
 
 - `r34-video-watch-archive-downloader.user.js`: English userscript.
 - `r34-video-watch-archive-downloader.zh.user.js`: Chinese userscript.
-- `Intro_R34 Video Watch Archive Downloader.txt`: SleazyFork release introduction text.
+- `Intro.MD` / `Intro_ZH.MD`: SleazyFork release introduction text.
 - `Intro01_EN.png` / `Intro02_ZH.png`: release screenshots.
 - `Agent.md`: short maintenance notes for coding agents.
 

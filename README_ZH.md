@@ -31,7 +31,7 @@
 
 - `r34-video-watch-archive-downloader.user.js`：英文脚本。
 - `r34-video-watch-archive-downloader.zh.user.js`：中文脚本。
-- `Intro_R34 Video Watch Archive Downloader.txt`：SleazyFork 发布介绍文本。
+- `Intro.MD` / `Intro_ZH.MD`：SleazyFork 发布介绍文本。
 - `Intro01_EN.png` / `Intro02_ZH.png`：发布截图。
 - `Agent.md`：给编程智能体看的简短维护说明。
 
