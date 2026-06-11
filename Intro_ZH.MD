@@ -1,13 +1,12 @@
-
-R34 Video Watch Archive Downloader _ ZH
+# R34 Video Watch Archive Downloader _ ZH
 
 ![R34 Video Watch Archive Downloader _ ZH](https://raw.githubusercontent.com/GitRuozhi/Video-Watch-Archive-Downloader/master/Intro02_ZH.png)
 
-描述：
+## 描述：
 
 轻量插件。Rule34video视频批量下载，观看视频自动归档下载。支持同步下载简介、Tag等作品元信息。支持浏览器直接下载、链接导出、YT-DLP下载命令导出。
 
-介绍：
+## 介绍：
 
 - Rule34video视频批量下载
 
@@ -37,7 +36,7 @@ R34 Video Watch Archive Downloader _ ZH
 
 
 
-更新日志：
+## 更新日志：
 
 V4.6：
 

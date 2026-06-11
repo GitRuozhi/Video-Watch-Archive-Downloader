@@ -1,13 +1,13 @@
 
-R34 Video Watch Archive Downloader
+# R34 Video Watch Archive Downloader
 
 ![R34 Video Watch Archive Downloader](https://raw.githubusercontent.com/GitRuozhi/Video-Watch-Archive-Downloader/master/Intro01_EN.png)
 
-Description : 
+## Description : 
 
 Lightweight plugin. Rule34video video bulk download, watched video automatically archive download. Support synchronous download introduction, Tag and other works meta-information. Support browser direct download, link export, YT-DLP download command export.
  
-Introduction : 
+## Introduction : 
 
 - Rule34video video bulk download.
 
@@ -36,7 +36,7 @@ Introduction :
 - Supports advanced options.
  
  
-Update log : 
+## Update log : 
 
 V4.6 :
 
