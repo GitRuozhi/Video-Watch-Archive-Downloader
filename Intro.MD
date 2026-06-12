@@ -38,6 +38,10 @@ Lightweight plugin. Rule34video video bulk download, watched video automatically
  
 ## Update log : 
 
+V4.7 :
+
+- Hardened URL validation to allow only HTTP(S) links.
+
 V4.6 :
 
 - Refactored the download flow and added manual retry for failed tasks.

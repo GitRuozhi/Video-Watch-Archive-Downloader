@@ -2,7 +2,7 @@
 // @name         R34 Video Watch Archive Downloader
 // @namespace    https://github.com/GitRuozhi
 // @license      MIT
-// @version      4.6
+// @version      4.7
 // @description  Rule34video video bulk download, watched video automatically archive download. Support synchronous download introduction, Tag and other works meta-information. Support browser direct download, link export, YT-DLP download command export.
 // @author       GitRuozhi
 // @match        https://rule34video.com/*
@@ -2404,11 +2404,13 @@
   }
 
   function safeUrl(value, baseUrl) {
-    if (!value) return null;
-    const decoded = decodeHtmlEntities(String(value).trim());
-    if (!decoded || decoded.startsWith('javascript:') || decoded.startsWith('data:')) return null;
+    if (value == null) return null;
+    const decoded = decodeHtmlEntities(String(value)).trim();
+    if (!decoded) return null;
     try {
-      return new URL(decoded, baseUrl || location.href);
+      const parsed = new URL(decoded, baseUrl || location.href);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+      return parsed;
     } catch (_) {
       return null;
     }

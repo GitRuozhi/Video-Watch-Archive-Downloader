@@ -2,7 +2,7 @@
 
 Tampermonkey userscript for archiving watched videos and batch downloading videos from `rule34video.com`.
 
-Current release: **v4.6**.
+Current release: **v4.7**.
 
 Chinese documentation: [README_ZH.md](README_ZH.md).
 
@@ -36,6 +36,10 @@ Open the project page and click install. This GitHub repository keeps the source
 - `Agent.md`: short maintenance notes for coding agents.
 
 ## Release Notes
+
+### v4.7
+
+- Hardened URL validation to allow only HTTP(S) links.
 
 ### v4.6
 

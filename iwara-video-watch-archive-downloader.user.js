@@ -2,7 +2,7 @@
 // @name         Iwara Video Watch Archive Downloader
 // @namespace    https://github.com/GitRuozhi
 // @license      MIT
-// @version      0.1
+// @version      0.2
 // @description  Lightweight Iwara browser helper for collecting visible video links, reading page download links, and downloading videos with Iwara-style metadata.
 // @author       GitRuozhi
 // @match        https://www.iwara.tv/*
@@ -1208,11 +1208,13 @@
   }
 
   function safeUrl(value, baseUrl) {
-    if (!value) return null;
-    const decoded = decodeHtmlEntities(String(value).trim());
-    if (!decoded || decoded.startsWith('javascript:') || decoded.startsWith('data:')) return null;
+    if (value == null) return null;
+    const decoded = decodeHtmlEntities(String(value)).trim();
+    if (!decoded) return null;
     try {
-      return new URL(decoded, baseUrl || location.href);
+      const parsed = new URL(decoded, baseUrl || location.href);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+      return parsed;
     } catch (_) {
       return null;
     }
