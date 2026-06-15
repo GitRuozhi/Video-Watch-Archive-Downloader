@@ -35,12 +35,15 @@ Lightweight plugin. Rule34video video bulk download, watched video automatically
 
 - Supports advanced options.
  
+Github: https://github.com/GitRuozhi/Video-Watch-Archive-Downloader/
  
 ## Update log : 
 
 V4.7 :
 
-- Hardened URL validation to allow only HTTP(S) links.
+- Hardened security validation.
+
+- Added an Iwara version; it is not published to SleazyFork yet and can be accessed from GitHub.
 
 V4.6 :
 

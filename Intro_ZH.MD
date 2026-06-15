@@ -34,13 +34,14 @@
 
 - 支持高级选项
 
-
+Github: https://github.com/GitRuozhi/Video-Watch-Archive-Downloader/
 
 ## 更新日志：
 
-V4.7：
+V4.7
 
-- 加强 URL 校验，仅允许 HTTP(S) 链接。
+- 加强安全校验。
+- 新增 iwara 版本，暂未发布到sleazyfork，可从Github访问。
 
 V4.6：
 
