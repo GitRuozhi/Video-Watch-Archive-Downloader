@@ -1629,11 +1629,13 @@
   }
 
   function stopDownloads() {
-    state.downloading = false;
     state.downloadStopRequested = true;
     addLog('Stopped queue submission. Active browser downloads may still finish.');
     persistState();
     updateUi();
+    if (state.activeDownloads === 0) {
+      finishDownloadRound();
+    }
   }
 
   function pumpDownloads() {
@@ -1856,18 +1858,28 @@
     updateUi();
     if (state.downloading && !state.downloadStopRequested) {
       setTimeout(pumpDownloads, CONFIG.DOWNLOAD_DELAY_MS);
+    } else if (state.activeDownloads === 0 && state.downloading) {
+      finishDownloadRound();
     }
   }
 
   function finishDownloadRound() {
     const doneCount = state.downloadRound.success || 0;
     const failedCount = state.tasks.filter((task) => task.status === STATUS.FAILED && task.videoUrl).length;
+    const notDownloadedCount = countNotDownloadedTasks();
 
     state.downloading = false;
     state.downloadStopRequested = false;
-    addLog(`Download round finished: success ${doneCount}, failed ${failedCount}.`);
+    addLog(`Download round finished: success ${doneCount}, failed ${failedCount}, not downloaded ${notDownloadedCount}.`);
     persistState();
     updateUi();
+  }
+
+  function countNotDownloadedTasks() {
+    return state.tasks.filter((task) => (
+      task.status === STATUS.READY ||
+      (task.status === STATUS.FAILED && task.videoUrl && task.retries <= CONFIG.RETRY_LIMIT)
+    )).length;
   }
 
   function removeCompletedTask(task) {

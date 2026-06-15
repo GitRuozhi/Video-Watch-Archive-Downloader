@@ -34,3 +34,10 @@ English short labels into the Chinese version.
 
 `Agent.md` is for coding agents. Keep it concise and focused on maintenance
 rules, not full user documentation.
+
+## Future Work
+
+Consider adding a persisted successful-download table later to prevent videos
+that already completed from being auto-queued and downloaded again. This is not
+part of the current queue state machine; keep it as a separate storage concern
+if implemented.

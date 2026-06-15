@@ -1,6 +1,6 @@
 # R34 Video Watch Archive Downloader
 
-Tampermonkey userscript for archiving watched videos and batch downloading videos from `rule34video.com`.
+Tampermonkey userscript for archiving watched videos and batch downloading videos from `rule34video.com`. A new Iwara version has been added; it is not published yet and is kept in this repository.
 
 Current release: **v4.7**.
 
@@ -40,6 +40,7 @@ Open the project page and click install. This GitHub repository keeps the source
 ### v4.7
 
 - Hardened URL validation to allow only HTTP(S) links.
+- Added an Iwara version; it is not published to SleazyFork yet and is kept in this repository.
 
 ### v4.6
 

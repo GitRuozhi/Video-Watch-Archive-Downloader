@@ -1,6 +1,6 @@
 # R34 Video Watch Archive Downloader
 
-用于 `rule34video.com` 的 Tampermonkey 油猴脚本，支持已看视频自动归档、批量采集、导出和下载视频。
+用于 `rule34video.com` 的 Tampermonkey 油猴脚本，支持已看视频自动归档、批量采集、导出和下载视频。新增iwara版本，暂未发布，保存在仓库中。
 
 当前版本：**v4.7**。
 
@@ -40,6 +40,7 @@
 ### v4.7
 
 - 加强 URL 校验，仅允许 HTTP(S) 链接。
+- 新增 iwara 版本，暂未发布到sleazyfork，保存在仓库中。
 
 ### v4.6
 

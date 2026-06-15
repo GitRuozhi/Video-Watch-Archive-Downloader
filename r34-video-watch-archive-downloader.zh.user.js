@@ -1630,11 +1630,13 @@
   }
 
   function stopDownloads() {
-    state.downloading = false;
     state.downloadStopRequested = true;
     addLog('已停止继续提交队列，正在下载的任务可能仍会在浏览器中继续。');
     persistState();
     updateUi();
+    if (state.activeDownloads === 0) {
+      finishDownloadRound();
+    }
   }
 
   function pumpDownloads() {
@@ -1857,18 +1859,28 @@
     updateUi();
     if (state.downloading && !state.downloadStopRequested) {
       setTimeout(pumpDownloads, CONFIG.DOWNLOAD_DELAY_MS);
+    } else if (state.activeDownloads === 0 && state.downloading) {
+      finishDownloadRound();
     }
   }
 
   function finishDownloadRound() {
     const doneCount = state.downloadRound.success || 0;
     const failedCount = state.tasks.filter((task) => task.status === STATUS.FAILED && task.videoUrl).length;
+    const notDownloadedCount = countNotDownloadedTasks();
 
     state.downloading = false;
     state.downloadStopRequested = false;
-    addLog(`下载轮次完成：成功 ${doneCount}，失败 ${failedCount}。`);
+    addLog(`下载轮次完成：成功 ${doneCount}，失败 ${failedCount}，未下载 ${notDownloadedCount}。`);
     persistState();
     updateUi();
+  }
+
+  function countNotDownloadedTasks() {
+    return state.tasks.filter((task) => (
+      task.status === STATUS.READY ||
+      (task.status === STATUS.FAILED && task.videoUrl && task.retries <= CONFIG.RETRY_LIMIT)
+    )).length;
   }
 
   function removeCompletedTask(task) {
