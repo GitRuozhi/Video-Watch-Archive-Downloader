@@ -127,7 +127,7 @@
   "sizeGB": "GB",
   "etaUnknown": "--"
 };
-  const SCRIPT_VERSION = '1.0';
+  const SCRIPT_VERSION = '4.7';
   const STORE_KEY = 'iwara_video_watch_archive_downloader_state_v1';
   const SETTINGS_KEY = 'iwara_video_watch_archive_downloader_settings_v1';
   const PANEL_ID = 'iwara-watch-archive-downloader-panel';

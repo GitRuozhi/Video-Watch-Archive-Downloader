@@ -41,6 +41,7 @@
 
 - 加强安全校验。
 - 新增 iwara 版本，暂未发布到sleazyfork，可从Github访问。
+- 将 Iwara 元信息中的 `scriptVersion` 与油猴脚本发布版本保持一致。
 
 ### v4.6
 

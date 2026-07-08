@@ -41,6 +41,7 @@ Open the project page and click install. This GitHub repository keeps the source
 
 - Hardened security validation.
 - Added an Iwara version; it is not published to SleazyFork yet and can be accessed from GitHub.
+- Aligned the Iwara metadata `scriptVersion` value with the userscript release version.
 
 ### v4.6
 
