@@ -18,7 +18,7 @@
 
 - 支持rule34video网站的伪跳转 AJAX 子页面。
 
-- 支持3种下载方式，浏览器直接下载、链接导出、YT-DLP下载命令导出。
+- 支持4种下载方式，浏览器直接下载、链接导出、IDM 导入、YT-DLP下载命令导出。
 
 - 面板默认出现在视窗右下角，可以收缩为小按钮，可以鼠标拖动。
 
@@ -37,6 +37,10 @@
 Github: https://github.com/GitRuozhi/Video-Watch-Archive-Downloader/
 
 ## 更新日志：
+
+V4.8
+
+- 新增 IDM 导出模式：生成 URL\tReferer 制表符分隔的 TXT 文件，兼容 Internet Download Manager 批量导入，绕过网站防盗链保护。
 
 V4.7
 

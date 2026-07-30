@@ -2,7 +2,7 @@
 // @name         R34 Video Watch Archive Downloader _ ZH
 // @namespace    https://github.com/GitRuozhi
 // @license      MIT
-// @version      4.7
+// @version      4.8
 // @description  Rule34video视频批量下载，观看视频自动归档下载。支持同步下载简介、Tag等作品元信息。支持浏览器直接下载、链接导出、YT-DLP下载命令导出。
 // @author       GitRuozhi
 // @match        https://rule34video.com/*
@@ -53,6 +53,7 @@
     DIRECT: 'direct',
     LINKS: 'links',
     YTDLP: 'ytdlp',
+    IDM: 'idm',
   };
 
   const DEFAULT_SETTINGS = {
@@ -381,6 +382,7 @@
                 <option value="direct">浏览器</option>
                 <option value="links">直链文本</option>
                 <option value="ytdlp">YT-DLP</option>
+                <option value="idm">IDM</option>
               </select>
             </label>
             <label>清晰度
@@ -1925,9 +1927,11 @@
     }
 
     if (mainText) {
-      const name = state.settings.exportMode === EXPORT_MODE.YTDLP
-        ? `r34video-ytdlp-${stamp}.txt`
-        : `r34video-links-${stamp}.txt`;
+      const ext = '.txt';
+      let name;
+      if (state.settings.exportMode === EXPORT_MODE.YTDLP) name = `r34video-ytdlp-${stamp}${ext}`;
+      else if (state.settings.exportMode === EXPORT_MODE.IDM) name = `r34video-idm-${stamp}${ext}`;
+      else name = `r34video-links-${stamp}${ext}`;
       downloadTextFile(name, mainText, 'text/plain');
     }
 
@@ -1935,7 +1939,11 @@
       downloadTextFile(`r34video-meta-${stamp}.jsonl`, metaText, 'application/json');
     }
 
-    addLog(state.settings.exportMode === EXPORT_MODE.YTDLP ? 'YT-DLP 输出文件已保存。' : '直链输出文件已保存。');
+    let logMsg;
+    if (state.settings.exportMode === EXPORT_MODE.YTDLP) logMsg = 'YT-DLP 输出文件已保存。';
+    else if (state.settings.exportMode === EXPORT_MODE.IDM) logMsg = 'IDM 导入文件已保存。';
+    else logMsg = '直链输出文件已保存。';
+    addLog(logMsg);
     updateUi();
   }
 
@@ -1943,6 +1951,9 @@
     const ready = state.tasks.filter((task) => task.videoUrl);
     if (state.settings.exportMode === EXPORT_MODE.YTDLP) {
       return ready.map((task) => `yt-dlp -o ${shellQuote(task.filename)} ${shellQuote(task.videoUrl)}`).join('\n');
+    }
+    if (state.settings.exportMode === EXPORT_MODE.IDM) {
+      return ready.map((task) => `${task.videoUrl}\t${task.postUrl}`).join('\r\n');
     }
     return ready.map((task) => task.videoUrl).join('\n');
   }

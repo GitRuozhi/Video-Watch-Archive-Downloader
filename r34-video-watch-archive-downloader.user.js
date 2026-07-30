@@ -2,7 +2,7 @@
 // @name         R34 Video Watch Archive Downloader
 // @namespace    https://github.com/GitRuozhi
 // @license      MIT
-// @version      4.7
+// @version      4.8
 // @description  Rule34video video bulk download, watched video automatically archive download. Support synchronous download introduction, Tag and other works meta-information. Support browser direct download, link export, YT-DLP download command export.
 // @author       GitRuozhi
 // @match        https://rule34video.com/*
@@ -53,6 +53,7 @@
     DIRECT: 'direct',
     LINKS: 'links',
     YTDLP: 'ytdlp',
+    IDM: 'idm',
   };
 
   const DEFAULT_SETTINGS = {
@@ -380,6 +381,7 @@
                 <option value="direct">Browser</option>
                 <option value="links">Links TXT</option>
                 <option value="ytdlp">YT-DLP</option>
+                <option value="idm">IDM</option>
               </select>
             </label>
             <label title="Preferred video quality">Quality
@@ -1924,9 +1926,11 @@
     }
 
     if (mainText) {
-      const name = state.settings.exportMode === EXPORT_MODE.YTDLP
-        ? `r34video-ytdlp-${stamp}.txt`
-        : `r34video-links-${stamp}.txt`;
+      const ext = '.txt';
+      let name;
+      if (state.settings.exportMode === EXPORT_MODE.YTDLP) name = `r34video-ytdlp-${stamp}${ext}`;
+      else if (state.settings.exportMode === EXPORT_MODE.IDM) name = `r34video-idm-${stamp}${ext}`;
+      else name = `r34video-links-${stamp}${ext}`;
       downloadTextFile(name, mainText, 'text/plain');
     }
 
@@ -1934,7 +1938,11 @@
       downloadTextFile(`r34video-meta-${stamp}.jsonl`, metaText, 'application/json');
     }
 
-    addLog(state.settings.exportMode === EXPORT_MODE.YTDLP ? 'YT-DLP output files saved.' : 'Direct link output files saved.');
+    let logMsg;
+    if (state.settings.exportMode === EXPORT_MODE.YTDLP) logMsg = 'YT-DLP output files saved.';
+    else if (state.settings.exportMode === EXPORT_MODE.IDM) logMsg = 'IDM import files saved.';
+    else logMsg = 'Direct link output files saved.';
+    addLog(logMsg);
     updateUi();
   }
 
@@ -1942,6 +1950,9 @@
     const ready = state.tasks.filter((task) => task.videoUrl);
     if (state.settings.exportMode === EXPORT_MODE.YTDLP) {
       return ready.map((task) => `yt-dlp -o ${shellQuote(task.filename)} ${shellQuote(task.videoUrl)}`).join('\n');
+    }
+    if (state.settings.exportMode === EXPORT_MODE.IDM) {
+      return ready.map((task) => `${task.videoUrl}\t${task.postUrl}`).join('\r\n');
     }
     return ready.map((task) => task.videoUrl).join('\n');
   }

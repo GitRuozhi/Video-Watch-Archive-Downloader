@@ -19,7 +19,7 @@ Lightweight plugin. Rule34video video bulk download, watched video automatically
 
 - Supports rule34video pseudo-navigation AJAX subpages.
 
-- Supports 3 download methods: browser direct download, link export, and YT-DLP command export.
+- Supports 4 download methods: browser direct download, link export, IDM import, and YT-DLP command export.
 
 - By default, the panel appears in the lower right corner of the window. It can be collapsed to a small button and dragged with the mouse.
 
@@ -38,6 +38,10 @@ Lightweight plugin. Rule34video video bulk download, watched video automatically
 Github: https://github.com/GitRuozhi/Video-Watch-Archive-Downloader/
  
 ## Update log : 
+
+V4.8 :
+
+- Added IDM export mode: generates URL\tReferer tab-separated TXT files for Internet Download Manager batch import, bypassing anti-hotlink protection.
 
 V4.7 :
 

@@ -2,7 +2,7 @@
 
 Tampermonkey userscript for archiving watched videos and batch downloading videos from `rule34video.com`. A new Iwara version has been added; it is not published to SleazyFork yet and can be accessed from GitHub.
 
-Current release: **v4.7**.
+Current release: **v4.8**.
 
 Chinese documentation: [README_ZH.md](README_ZH.md).
 
@@ -23,7 +23,7 @@ Open the project page and click install. This GitHub repository keeps the source
 - Resolve direct video URLs and available quality variants.
 - Choose quality: best, 8K, 4K, 1080p, 720p, 480p, or 360p.
 - Browser download mode can optionally save metadata JSON before submitting the video download.
-- Export direct-link TXT, YT-DLP command TXT, and metadata JSONL.
+- Export direct-link TXT, YT-DLP command TXT, IDM import TXT (URL\tReferer), and metadata JSONL.
 - Configure filename parts: ID, title, and original filename.
 - Floating panel with Queue, Active, Success, and Failed statistics.
 
@@ -31,11 +31,17 @@ Open the project page and click install. This GitHub repository keeps the source
 
 - `r34-video-watch-archive-downloader.user.js`: English userscript.
 - `r34-video-watch-archive-downloader.zh.user.js`: Chinese userscript.
+- `iwara-video-watch-archive-downloader.user.js`: English Iwara userscript.
+- `iwara-video-watch-archive-downloader.zh.user.js`: Chinese Iwara userscript.
 - `Intro.MD` / `Intro_ZH.MD`: SleazyFork release introduction text.
 - `Intro01_EN.png` / `Intro02_ZH.png`: release screenshots.
 - `Agent.md`: short maintenance notes for coding agents.
 
 ## Release Notes
+
+### v4.8
+
+- Added IDM export mode: generates URL\tReferer tab-separated TXT files compatible with Internet Download Manager batch import, bypassing anti-hotlink protection.
 
 ### v4.7
 

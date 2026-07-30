@@ -2,7 +2,7 @@
 
 用于 `rule34video.com` 的 Tampermonkey 油猴脚本，支持已看视频自动归档、批量采集、导出和下载视频。新增 iwara 版本，暂未发布到sleazyfork，可从Github访问。
 
-当前版本：**v4.7**。
+当前版本：**v4.8**。
 
 英文说明见 [README.md](README.md)。
 
@@ -23,7 +23,7 @@
 - 解析视频直链和可用清晰度。
 - 清晰度可选：最佳、8K、4K、1080p、720p、480p、360p。
 - 浏览器下载模式可选择先保存元信息 JSON，再提交视频下载。
-- 可导出直链 TXT、YT-DLP 命令 TXT 和元信息 JSONL。
+- 可导出直链 TXT、YT-DLP 命令 TXT、IDM 导入 TXT（URL\tReferer）和元信息 JSONL。
 - 文件名可配置 ID、标题、原文件名三部分。
 - 悬浮面板显示队列中、下载中、已成功和已失败统计。
 
@@ -31,11 +31,17 @@
 
 - `r34-video-watch-archive-downloader.user.js`：英文脚本。
 - `r34-video-watch-archive-downloader.zh.user.js`：中文脚本。
+- `iwara-video-watch-archive-downloader.user.js`：Iwara 英文脚本。
+- `iwara-video-watch-archive-downloader.zh.user.js`：Iwara 中文脚本。
 - `Intro.MD` / `Intro_ZH.MD`：SleazyFork 发布介绍文本。
 - `Intro01_EN.png` / `Intro02_ZH.png`：发布截图。
 - `Agent.md`：给编程智能体看的简短维护说明。
 
 ## 更新记录
+
+### v4.8
+
+- 新增 IDM 导出模式：生成 URL\tReferer 制表符分隔的 TXT 文件，兼容 Internet Download Manager 批量导入，绕过网站防盗链保护。
 
 ### v4.7
 
