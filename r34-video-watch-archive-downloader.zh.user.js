@@ -2,10 +2,13 @@
 // @name         R34 Video Watch Archive Downloader _ ZH
 // @namespace    https://github.com/GitRuozhi
 // @license      MIT
-// @version      4.8
+// @version      5.1
 // @description  Rule34video视频批量下载，观看视频自动归档下载。支持同步下载简介、Tag等作品元信息。支持浏览器直接下载、链接导出、YT-DLP下载命令导出。
 // @author       GitRuozhi
 // @match        https://rule34video.com/*
+// @match        https://www.rule34video.com/*
+// @match        https://rule34gen.com/*
+// @match        https://www.rule34gen.com/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_download
 // @grant        GM_getValue
@@ -13,6 +16,7 @@
 // @grant        GM_deleteValue
 // @grant        GM_addValueChangeListener
 // @connect      rule34video.com
+// @connect      rule34gen.com
 // @connect      *
 // @run-at       document-idle
 // ==/UserScript==
@@ -37,6 +41,7 @@
     WATCHED_DUPLICATE_MS: 1500,
     ROUTE_POLL_MS: 500,
     RETRY_LIMIT: 1,
+    EXPORT_LINK_MAX_AGE_MS: 10 * 60 * 1000,
     MEDIA_EXTENSIONS: ['.mp4', '.webm', '.m4v', '.mov'],
   };
 
@@ -88,6 +93,7 @@
       wrapCount: 0,
     },
     fetching: false,
+    exporting: false,
     downloading: false,
     downloadStopRequested: false,
     activeDownloads: 0,
@@ -382,7 +388,7 @@
                 <option value="direct">浏览器</option>
                 <option value="links">直链文本</option>
                 <option value="ytdlp">YT-DLP</option>
-                <option value="idm">IDM</option>
+                <option value="idm" title="导出 .ef2；在 IDM 中选择从 IDM 导出文件导入">IDM</option>
               </select>
             </label>
             <label>清晰度
@@ -646,6 +652,10 @@
 
   async function runWatchedPageCheck(source) {
     if (!state.settings.autoQueueSingle) return;
+    if (state.exporting) {
+      scheduleWatchedPageCheck(source);
+      return;
+    }
 
     if (watchedPage.processing) {
       watchedPage.rerunRequested = true;
@@ -752,6 +762,7 @@
   }
 
   async function queueWatchedVideo(postUrl, source) {
+    if (state.exporting) return false;
     const normalized = normalizeUrl(postUrl);
     const wasAdded = addTask(normalized);
     const task = findTaskByPostUrl(normalized);
@@ -779,7 +790,7 @@
   }
 
   async function collectCurrentOnly() {
-    if (state.fetching) return;
+    if (state.fetching || state.exporting) return;
     state.collection.active = false;
     state.collection.stopped = true;
     await collectCurrentPageVideos();
@@ -788,7 +799,7 @@
   }
 
   async function startPageCollection() {
-    if (state.fetching) return;
+    if (state.fetching || state.exporting) return;
     saveSettingsFromUi();
     state.collection.active = true;
     state.collection.stopped = false;
@@ -804,6 +815,7 @@
   }
 
   function togglePageCollection() {
+    if (state.exporting) return;
     if (state.collection.active || state.fetching) {
       stopCollection();
       return;
@@ -987,6 +999,7 @@
       videoSpeedBps: 0,
       finalFailureCounted: false,
       capturedAt: new Date().toISOString(),
+      resolvedAt: '',
     };
 
     state.seen[key] = true;
@@ -995,7 +1008,7 @@
     return true;
   }
 
-  async function resolvePendingTasks(onlyUrls) {
+  async function resolvePendingTasks(onlyUrls, forceRequest = false) {
     const only = onlyUrls ? new Set(onlyUrls.map(normalizeUrl)) : null;
     const targets = state.tasks.filter((task) => task.status === STATUS.PENDING && (!only || only.has(normalizeUrl(task.postUrl))));
     if (!targets.length) return;
@@ -1012,7 +1025,7 @@
       while (cursor < targets.length) {
         const task = targets[cursor];
         cursor += 1;
-        await resolveOneTask(task);
+        await resolveOneTask(task, forceRequest);
         await delay(CONFIG.REQUEST_DELAY_MS);
       }
     }
@@ -1022,14 +1035,15 @@
     );
   }
 
-  async function resolveOneTask(task) {
+  async function resolveOneTask(task, forceRequest = false) {
+    invalidateTaskVideoLink(task);
     task.status = STATUS.FETCHING;
     task.error = '';
     persistState();
     updateUi(`Resolving ${task.postUrl}`);
 
     try {
-      const html = normalizeUrl(task.postUrl) === normalizeUrl(location.href)
+      const html = !forceRequest && normalizeUrl(task.postUrl) === normalizeUrl(location.href)
         ? document.documentElement.outerHTML
         : await requestText(task.postUrl);
       const doc = parseHtml(html);
@@ -1045,6 +1059,7 @@
       task.availableQualities = resolved.availableQualities;
       task.metadata = resolved.metadata;
       task.capturedAt = task.capturedAt || new Date().toISOString();
+      task.resolvedAt = new Date().toISOString();
       updateTaskFilename(task);
       task.status = STATUS.READY;
 
@@ -1350,7 +1365,7 @@
     selectors.forEach((selector) => {
       doc.querySelectorAll(selector).forEach((anchor) => {
         const url = safeUrl(anchor.getAttribute('href'), baseUrl);
-        if (!url || url.origin !== location.origin || !isVideoPage(url.href)) return;
+        if (!url || url.origin.replace('://www.', '://') !== location.origin.replace('://www.', '://') || !isVideoPage(url.href)) return;
         urls.add(normalizeUrl(url.href));
       });
     });
@@ -1591,21 +1606,21 @@
     clearTimeout(autoDownloadTimer);
     autoDownloadTimer = setTimeout(() => {
       autoDownloadTimer = 0;
-      if (!state.settings.autoDownloadSingle || state.downloading || state.fetching || state.collection.active) return;
+      if (!state.settings.autoDownloadSingle || state.downloading || state.fetching || state.exporting || state.collection.active) return;
       if (!state.tasks.some(isDownloadableTask)) return;
       startDownloads('auto');
     }, delayMs);
   }
 
   function startDownloads(source = 'manual') {
+    if (state.exporting) return;
     if (state.downloading) {
       if (source === 'manual') stopDownloads();
       return;
     }
     saveSettingsFromUi();
     if (state.settings.exportMode !== EXPORT_MODE.DIRECT) {
-      saveOutputFiles();
-      return;
+      return exportResolvedTasks();
     }
     state.downloadStopRequested = false;
     state.downloading = true;
@@ -1617,8 +1632,9 @@
   }
 
   function retryFailedDownloads() {
-    if (state.downloading || state.fetching || state.collection.active) return;
+    if (state.downloading || state.fetching || state.exporting || state.collection.active) return;
     saveSettingsFromUi();
+    if (state.settings.exportMode !== EXPORT_MODE.DIRECT) return exportResolvedTasks();
     const retryCount = resetFailedTasksForRetry();
     if (!retryCount) {
       addLog('没有失败下载需要重试。');
@@ -1916,9 +1932,64 @@
     return count;
   }
 
-  function saveOutputFiles() {
+  async function exportResolvedTasks() {
+    if (state.exporting || state.fetching || state.downloading || state.collection.active
+      || state.tasks.some((task) => task.status === STATUS.FETCHING)) return;
+    const exportMode = state.settings.exportMode;
+    state.exporting = true;
+    updateUi();
+    try {
+      await refreshTasksForExport();
+      saveOutputFiles(exportMode);
+    } catch (error) {
+      addLog('导出失败：' + messageOf(error));
+    } finally {
+      state.exporting = false;
+      persistState();
+      updateUi();
+    }
+  }
+
+  function isExportLinkFresh(task, now = Date.now()) {
+    const resolvedAt = Date.parse(task.resolvedAt || '');
+    const age = now - resolvedAt;
+    return Boolean(task.videoUrl) && Number.isFinite(age) && age >= 0 && age < CONFIG.EXPORT_LINK_MAX_AGE_MS;
+  }
+
+  function invalidateTaskVideoLink(task) {
+    task.videoUrl = '';
+    task.resolvedAt = '';
+    task.filename = '';
+    task.originalFilename = '';
+    task.selectedQuality = '';
+    task.availableQualities = [];
+    task.metadata = { ...task.metadata, videoUrl: '', downloadUrl: '', selectedQuality: '', availableQualities: [] };
+  }
+
+  async function refreshTasksForExport() {
+    const now = Date.now();
+    const targets = state.tasks.filter((task) => task.postUrl
+      && ![STATUS.DOWNLOADING, STATUS.FETCHING].includes(task.status)
+      && !isExportLinkFresh(task, now));
+    if (!targets.length) return;
+    addLog('导出前刷新链接：' + targets.length + '.');
+    const completed = new Set(targets.filter((task) => task.status === STATUS.DONE));
+    targets.forEach((task) => {
+      invalidateTaskVideoLink(task);
+      task.status = STATUS.PENDING;
+      task.error = '';
+    });
+    persistState();
+    updateUi();
+    await resolvePendingTasks(targets.map((task) => task.postUrl), true);
+    completed.forEach((task) => { task.status = STATUS.DONE; });
+    const failed = targets.filter((task) => !task.videoUrl).length;
+    if (failed) addLog('刷新失败，已跳过旧链接：' + failed + '.');
+  }
+
+  function saveOutputFiles(exportMode = state.settings.exportMode) {
     const stamp = timestampForFile();
-    const mainText = buildExportText();
+    const mainText = buildExportText(exportMode);
     const metaText = buildMetaJsonl();
     if (!mainText && !metaText) {
       addLog('没有已解析的视频可输出。');
@@ -1927,10 +1998,10 @@
     }
 
     if (mainText) {
-      const ext = '.txt';
+      const ext = exportMode === EXPORT_MODE.IDM ? '.ef2' : '.txt';
       let name;
-      if (state.settings.exportMode === EXPORT_MODE.YTDLP) name = `r34video-ytdlp-${stamp}${ext}`;
-      else if (state.settings.exportMode === EXPORT_MODE.IDM) name = `r34video-idm-${stamp}${ext}`;
+      if (exportMode === EXPORT_MODE.YTDLP) name = `r34video-ytdlp-${stamp}${ext}`;
+      else if (exportMode === EXPORT_MODE.IDM) name = `r34video-idm-${stamp}${ext}`;
       else name = `r34video-links-${stamp}${ext}`;
       downloadTextFile(name, mainText, 'text/plain');
     }
@@ -1940,22 +2011,40 @@
     }
 
     let logMsg;
-    if (state.settings.exportMode === EXPORT_MODE.YTDLP) logMsg = 'YT-DLP 输出文件已保存。';
-    else if (state.settings.exportMode === EXPORT_MODE.IDM) logMsg = 'IDM 导入文件已保存。';
-    else logMsg = '直链输出文件已保存。';
+    if (exportMode === EXPORT_MODE.YTDLP) logMsg = 'YT-DLP 输出文件已保存。';
+    else if (exportMode === EXPORT_MODE.IDM) logMsg = 'IDM .ef2 已保存。在 IDM 中选择：任务 > 导入 > 从 IDM 导出文件。';
+    else logMsg = '直链文本已保存（不含请求头）；导入 IDM 请使用 IDM 模式。';
     addLog(logMsg);
     updateUi();
   }
 
-  function buildExportText() {
+  function buildExportText(exportMode = state.settings.exportMode) {
     const ready = state.tasks.filter((task) => task.videoUrl);
-    if (state.settings.exportMode === EXPORT_MODE.YTDLP) {
+    if (exportMode === EXPORT_MODE.YTDLP) {
       return ready.map((task) => `yt-dlp -o ${shellQuote(task.filename)} ${shellQuote(task.videoUrl)}`).join('\n');
     }
-    if (state.settings.exportMode === EXPORT_MODE.IDM) {
-      return ready.map((task) => `${task.videoUrl}\t${task.postUrl}`).join('\r\n');
+    if (exportMode === EXPORT_MODE.IDM) {
+      return buildIdmExportText(ready);
     }
     return ready.map((task) => task.videoUrl).join('\n');
+  }
+
+  function buildIdmExportText(tasks) {
+    const userAgent = idmExportField(navigator.userAgent);
+    // Plain TXT import treats every URL as a download; EF2 associates headers
+    // with each media URL instead of adding the referring page to the queue.
+    const records = tasks.map((task) => {
+      const lines = ['<', idmExportField(task.videoUrl), `referer: ${idmExportField(task.postUrl || location.href)}`];
+      if (userAgent) lines.push(`User-Agent: ${userAgent}`);
+      lines.push('>');
+      return lines.join('\r\n');
+    }).join('\r\n');
+    // IDM skips the last record when its closing line has no newline.
+    return records ? records + '\r\n' : '';
+  }
+
+  function idmExportField(value) {
+    return String(value || '').replace(/[\u0000-\u001f\u007f]/g, '').trim();
   }
 
   function buildMetaJsonl() {
@@ -1972,6 +2061,7 @@
       title: task.title || task.metadata.title || '',
       pageUrl: task.postUrl,
       capturedAt: task.capturedAt,
+      resolvedAt: task.resolvedAt || '',
       selectedQuality: task.selectedQuality,
       requestedQuality: task.requestedQuality,
       availableQualities: task.availableQualities,
@@ -1991,7 +2081,7 @@
   }
 
   function clearTasks() {
-    if (state.downloading || state.fetching || state.collection.active) {
+    if (state.downloading || state.fetching || state.exporting || state.collection.active) {
       addLog('请先停止当前任务再初始化。');
       updateUi();
       return;
@@ -2073,19 +2163,24 @@
     progressEl.style.display = progressLines.length ? 'block' : 'none';
 
     ui.panel.classList.toggle('r34v-advanced-open', Boolean(state.settings.advancedOpen));
-    uiById('r34v-collect-current').disabled = state.fetching || state.collection.active;
-    uiById('r34v-collect-toggle').disabled = state.fetching && !state.collection.active;
+    uiById('r34v-collect-current').disabled = state.exporting || state.fetching || state.collection.active;
+    uiById('r34v-collect-toggle').disabled = state.exporting || (state.fetching && !state.collection.active);
     uiById('r34v-collect-toggle').textContent = state.collection.active ? '停止采集' : '采集多页';
-    uiById('r34v-clear').disabled = state.fetching || state.downloading || state.collection.active;
+    uiById('r34v-clear').disabled = state.exporting || state.fetching || state.downloading || state.collection.active;
+    uiById('r34v-export-mode').disabled = state.exporting;
+    uiById('r34v-quality').disabled = state.exporting;
+    const hasExportTasks = state.tasks.some((task) => task.postUrl || task.videoUrl);
     const downloadDisabled = state.downloading
       ? false
-      : (state.settings.autoDownloadSingle || state.activeDownloads > 0 || !state.tasks.some((task) => task.videoUrl));
+      : (state.exporting || state.fetching || state.collection.active || state.tasks.some((task) => task.status === STATUS.FETCHING)
+        || state.settings.autoDownloadSingle || state.activeDownloads > 0
+        || !(state.settings.exportMode === EXPORT_MODE.DIRECT ? state.tasks.some(isDownloadableTask) : hasExportTasks));
     uiById('r34v-download').disabled = downloadDisabled;
-    uiById('r34v-download').textContent = state.downloading ? '停止提交' : '开始下载';
+    uiById('r34v-download').textContent = state.exporting ? '刷新链接中' : (state.downloading ? '停止提交' : '开始下载');
     uiById('r34v-download').title = state.downloading
       ? '停止继续提交新下载，已提交到浏览器的下载可能继续'
-      : '开始提交队列下载';
-    uiById('r34v-retry-failed').disabled = state.downloading || state.fetching || state.collection.active || !state.tasks.some((task) => task.status === STATUS.FAILED);
+      : (state.exporting ? '正在刷新并导出链接' : '开始提交队列下载');
+    uiById('r34v-retry-failed').disabled = state.exporting || state.downloading || state.fetching || state.collection.active || !state.tasks.some((task) => task.status === STATUS.FAILED);
     uiById('r34v-advanced-toggle').textContent = state.settings.advancedOpen ? '收起选项' : '高级选项';
   }
 
@@ -2358,7 +2453,7 @@
       const el = doc.querySelector(selector);
       const value = el && (el.getAttribute('content') || el.textContent || '');
       const cleaned = normalizeWhitespace(value);
-      if (cleaned) return cleaned.replace(/\s*-\s*Rule34Video\s*$/i, '');
+      if (cleaned) return cleaned.replace(/\s*-\s*Rule34(?:Video|Gen)\s*$/i, '');
     }
     return '';
   }

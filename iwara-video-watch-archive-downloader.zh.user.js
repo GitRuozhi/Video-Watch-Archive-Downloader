@@ -2,11 +2,13 @@
 // @name         Iwara Video Watch Archive Downloader _ ZH
 // @namespace    https://github.com/GitRuozhi
 // @license      MIT
-// @version      4.8
+// @version      5.1
 // @description  Iwara 视频批量下载，观看视频自动归档下载。支持同步下载简介、Tag等作品元信息。支持浏览器直接下载、链接导出、YT-DLP下载命令导出。
 // @author       GitRuozhi
 // @match        https://www.iwara.tv/*
 // @match        https://iwara.tv/*
+// @match        https://www.iwara.ai/*
+// @match        https://iwara.ai/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_download
 // @grant        GM_getValue
@@ -68,7 +70,7 @@
   "pagesLimit": "页数",
   "pagesLimitTitle": "一次最多采集页数",
   "mode": "模式",
-  "modeTitle": "下载或导出方式",
+  "modeTitle": "下载或导出方式；IDM 模式导出 .ef2 文件",
   "browser": "浏览器",
   "linksTxt": "链接 TXT",
   "ytdlp": "YT-DLP",
@@ -115,9 +117,9 @@
   "downloadFailed": "下载失败：",
   "roundFinished": "下载轮次结束：",
   "noResolved": "没有已解析的视频可导出。",
-  "linksSaved": "直链导出文件已保存。",
+  "linksSaved": "直链文本已保存（不含请求头）；导入 IDM 请使用 IDM 模式。",
   "ytdlpSaved": "YT-DLP 导出文件已保存。",
-  "idmSaved": "IDM 导入文件已保存。",
+  "idmSaved": "IDM .ef2 已保存。在 IDM 中选择：任务 > 导入 > 从 IDM 导出文件。",
   "initDone": "队列已初始化。",
   "busyInit": "运行中不能初始化。",
   "activeReload": "页面刷新时任务仍在下载；浏览器中的上一次下载可能继续。",
@@ -129,7 +131,7 @@
   "sizeGB": "GB",
   "etaUnknown": "--"
 };
-  const SCRIPT_VERSION = '4.8';
+  const SCRIPT_VERSION = '5.1';
   const STORE_KEY = 'iwara_video_watch_archive_downloader_state_v1';
   const SETTINGS_KEY = 'iwara_video_watch_archive_downloader_settings_v1';
   const PANEL_ID = 'iwara-watch-archive-downloader-panel';
@@ -416,8 +418,45 @@
   function removeCompletedTask(task) { const index = state.tasks.indexOf(task); if (index >= 0) state.tasks.splice(index, 1); rebuildSeenFromTasks(); }
   function rebuildSeenFromTasks() { state.seen = {}; state.tasks.forEach((task) => { state.seen[watchedItemKey(task.postUrl)] = true; }); }
   function resetFailedTasksForRetry() { let count = 0; state.tasks.forEach((task) => { if (task.status !== STATUS.FAILED || !task.videoUrl) return; task.status = STATUS.READY; task.error = ''; task.retries = 0; task.finalFailureCounted = false; task.videoDownloadSubmitted = false; task.videoDownloadDone = false; task.videoSubmittedAt = ''; task.videoDownloadedAt = ''; resetDownloadProgress(task); count += 1; }); return count; }
-  function saveOutputFiles() { const mainText = buildExportText(); const metaText = buildMetaJsonl(); if (!mainText && !metaText) { addLog(TEXT.noResolved); updateUi(); return; } const stamp = timestampForFile(); if (mainText) downloadTextFile(state.settings.exportMode === EXPORT_MODE.YTDLP ? 'iwara-ytdlp-' + stamp + '.txt' : state.settings.exportMode === EXPORT_MODE.IDM ? 'iwara-idm-' + stamp + '.txt' : 'iwara-links-' + stamp + '.txt', mainText, 'text/plain'); if (metaText) downloadTextFile('iwara-meta-' + stamp + '.jsonl', metaText, 'application/json'); addLog(state.settings.exportMode === EXPORT_MODE.YTDLP ? TEXT.ytdlpSaved : state.settings.exportMode === EXPORT_MODE.IDM ? TEXT.idmSaved : TEXT.linksSaved); updateUi(); }
-function buildExportText() { const ready = state.tasks.filter((task) => task.videoUrl); if (state.settings.exportMode === EXPORT_MODE.YTDLP) return ready.map((task) => 'yt-dlp -o ' + shellQuote(task.filename) + ' ' + shellQuote(task.videoUrl)).join('\n'); if (state.settings.exportMode === EXPORT_MODE.IDM) return ready.map((task) => task.videoUrl + '\t' + task.postUrl).join('\r\n'); return ready.map((task) => task.videoUrl).join('\n'); }
+  function saveOutputFiles() {
+    const mainText = buildExportText();
+    const metaText = buildMetaJsonl();
+    if (!mainText && !metaText) { addLog(TEXT.noResolved); updateUi(); return; }
+    const stamp = timestampForFile();
+    if (mainText) {
+      const name = state.settings.exportMode === EXPORT_MODE.YTDLP ? 'iwara-ytdlp-' + stamp + '.txt'
+        : state.settings.exportMode === EXPORT_MODE.IDM ? 'iwara-idm-' + stamp + '.ef2'
+        : 'iwara-links-' + stamp + '.txt';
+      downloadTextFile(name, mainText, 'text/plain');
+    }
+    if (metaText) downloadTextFile('iwara-meta-' + stamp + '.jsonl', metaText, 'application/json');
+    addLog(state.settings.exportMode === EXPORT_MODE.YTDLP ? TEXT.ytdlpSaved : state.settings.exportMode === EXPORT_MODE.IDM ? TEXT.idmSaved : TEXT.linksSaved);
+    updateUi();
+  }
+  function buildExportText() {
+    const ready = state.tasks.filter((task) => task.videoUrl);
+    if (state.settings.exportMode === EXPORT_MODE.YTDLP) return ready.map((task) => 'yt-dlp -o ' + shellQuote(task.filename) + ' ' + shellQuote(task.videoUrl)).join('\n');
+    if (state.settings.exportMode === EXPORT_MODE.IDM) return buildIdmExportText(ready);
+    return ready.map((task) => task.videoUrl).join('\n');
+  }
+
+  function buildIdmExportText(tasks) {
+    const userAgent = idmExportField(navigator.userAgent);
+    // Plain TXT import treats every URL as a download; EF2 associates headers
+    // with each media URL instead of adding the referring page to the queue.
+    const records = tasks.map((task) => {
+      const lines = ['<', idmExportField(task.videoUrl), `referer: ${idmExportField(task.postUrl || location.href)}`];
+      if (userAgent) lines.push(`User-Agent: ${userAgent}`);
+      lines.push('>');
+      return lines.join('\r\n');
+    }).join('\r\n');
+    // IDM skips the last record when its closing line has no newline.
+    return records ? records + '\r\n' : '';
+  }
+
+  function idmExportField(value) {
+    return String(value || '').replace(/[\u0000-\u001f\u007f]/g, '').trim();
+  }
 function buildMetaJsonl() { return state.tasks.filter((task) => task.videoUrl).map((task) => JSON.stringify(buildTaskMetadata(task))).join('\n'); }
   function buildTaskMetadata(task) { const meta = { ...emptyIwaraMetadata(task.postUrl, task.postId), ...task.metadata }; meta.id = task.postId || meta.id || ''; meta.title = task.title || meta.title || ''; meta.pageUrl = task.postUrl; meta.downloadUrl = task.videoUrl; meta.videoUrl = task.videoUrl; meta.downloadQuality = task.selectedQuality || meta.downloadQuality || ''; meta.selectedQuality = task.selectedQuality || meta.selectedQuality || ''; meta.requestedQuality = task.requestedQuality || state.settings.quality; meta.availableQualities = task.availableQualities || meta.availableQualities || []; meta.fileName = task.originalFilename || meta.fileName || filenameFromUrl(task.videoUrl); meta.downloadFilename = task.filename; meta.scriptVersion = SCRIPT_VERSION; meta.downloadMetadataRequested = Boolean(task.downloadMetadataRequested); meta.metaDownloadDone = Boolean(task.metaDownloadDone); meta.videoDownloadSubmitted = Boolean(task.videoDownloadSubmitted); meta.videoDownloadDone = Boolean(task.videoDownloadDone); meta.metaDownloadedAt = task.metaDownloadedAt || ''; meta.videoSubmittedAt = task.videoSubmittedAt || ''; meta.videoDownloadedAt = task.videoDownloadedAt || ''; meta.error = task.error || meta.error || ''; return meta; }
   function clearTasks() { if (state.downloading || state.fetching || state.collection.active) { addLog(TEXT.busyInit); updateUi(); return; } state.tasks = []; state.seen = {}; state.stats = { currentPage: 1, pagesCollected: 0, totalPages: totalPageNumber(document) }; state.collection = { active: false, stopped: true, startUrl: '', lastUrl: '', checkDuplicatesAfterWrap: false, wrapCount: 0 }; state.downloading = false; state.downloadStopRequested = false; state.activeDownloads = 0; state.downloadRound = { success: 0 }; state.downloadStats = { success: 0, failed: 0 }; state.logLines = []; clearTimeout(autoDownloadTimer); autoDownloadTimer = 0; addLog(TEXT.initDone); persistState(); updateUi(); }
@@ -470,7 +509,7 @@ function buildMetaJsonl() { return state.tasks.filter((task) => task.videoUrl).m
   function extractJsonLd(doc) { const items = []; doc.querySelectorAll('script[type="application/ld+json"]').forEach((script) => { try { const parsed = JSON.parse(script.textContent || '{}'); if (Array.isArray(parsed)) items.push(...parsed); else items.push(parsed); } catch (_) {} }); return items; }
   function extractMetaTags(doc) { const result = {}; doc.querySelectorAll('meta').forEach((el) => { const key = el.getAttribute('property') || el.getAttribute('name'); const value = el.getAttribute('content'); if (key && value) result[key] = value; }); return result; }
   function isDownloadCandidateUrl(url) { const lower = decodeURIComponent(String(url || '')).toLowerCase(); if (/^https?:\/\/(?:filesq?|i)\.iwara\.tv\b/i.test(lower)) return true; return CONFIG.MEDIA_EXTENSIONS.some((ext) => lower.includes(ext)); }
-  function sameIwaraSite(a, b) { const ah = String(a.hostname || '').replace(/^www\./, ''); const bh = String(b.hostname || '').replace(/^www\./, ''); return ah === bh && /(^|\.)iwara\.tv$/i.test(ah); }
+  function sameIwaraSite(a, b) { const ah = String(a.hostname || '').replace(/^www\./, ''); const bh = String(b.hostname || '').replace(/^www\./, ''); return ah === bh && /^iwara\.(?:tv|ai)$/i.test(ah); }
   function normalizeProtocolUrl(value, baseUrl) { const raw = String(value || '').trim(); const url = safeUrl(raw.startsWith('//') ? location.protocol + raw : raw, baseUrl || location.href); return url ? url.href : ''; }
   function absoluteIwaraUrl(path) { return location.origin.replace(/\/$/, '') + path; }
   function safeUrl(value, baseUrl) { if (value == null) return null; const decoded = decodeHtmlEntities(String(value)).trim(); if (!decoded) return null; try { const parsed = new URL(decoded, baseUrl || location.href); if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null; return parsed; } catch (_) { return null; } }
