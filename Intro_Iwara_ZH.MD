@@ -1,20 +1,19 @@
-# R34 Video Watch Archive Downloader _ ZH
+# Iwara Video Watch Archive Downloader 中文版
 
 ![R34 Video Watch Archive Downloader _ ZH](https://raw.githubusercontent.com/GitRuozhi/Video-Watch-Archive-Downloader/master/Intro02_ZH.png)
 
-轻量插件。 Rule34video 视频批量下载，观看视频自动归档下载。支持同步下载简介、Tag等作品元信息。支持浏览器直接下载、链接导出、YT-DLP下载命令导出。
+轻量插件。 Iwara 视频批量下载，观看视频自动归档下载。支持同步下载简介、Tag等作品元信息。支持浏览器直接下载、链接导出、YT-DLP下载命令导出。
 
-## 介绍：
 
-- Rule34video 视频批量下载
+## 介绍
+
+- Iwara 视频批量下载
 
 - 已看视频并自动进入队列。
 
 - 2个语言，英文和中文。
 
 - 支持搜索页、上传者页、用户页、收藏页等列表页采集。
-
-- 支持rule34video网站的伪跳转 AJAX 子页面。
 
 - 支持4种下载方式，浏览器直接下载、链接导出、IDM EF2 导入、YT-DLP下载命令导出。
 
@@ -38,32 +37,13 @@
 
 - 启用“元信息”后，会在下载视频前保存 Iwara 元信息 JSON。导出模式同时保存元信息 JSONL。可获取的元信息包括标题、简介、标签、上传者、上传日期、缩略图和文件信息。
 
-Github: https://github.com/GitRuozhi/Video-Watch-Archive-Downloader/
 
-## 更新日志：
+GitHub：[Video-Watch-Archive-Downloader](https://github.com/GitRuozhi/Video-Watch-Archive-Downloader/)
 
-V5.1
+## 更新日志
+
+V5.1：
 
 - 修复了 IDM 相关问题：EF2 为每条视频保留 Referer 和 User-Agent，补齐末尾 CRLF；R34 导出前刷新旧链接，失败时保留作品页供重试，不再输出旧地址。
 
 - 正式发布 Iwara Video Watch Archive Downloader 。
-
-V4.8
-
-- 新增初版 URL\tReferer TXT 导出，已在 v5.1 替换为 EF2。
-
-V4.7
-
-- 加强安全校验。
-
-- 新增 Iwara 初版。
-
-V4.6：
-
-- 重构了下载逻辑，支持手动重试已失败任务。
-
-- 增加了下载进度显示
-
-- 优化日志显示
-
-V4.4：发布版本

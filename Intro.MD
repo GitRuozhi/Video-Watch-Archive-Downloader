@@ -19,7 +19,9 @@ Lightweight plugin. Rule34video video bulk download, watched video automatically
 
 - Supports rule34video pseudo-navigation AJAX subpages.
 
-- Supports 4 download methods: browser direct download, link export, IDM import, and YT-DLP command export.
+- Supports 4 download methods: browser direct download, link export, IDM EF2 import, and YT-DLP command export.
+
+- For IDM, select IDM mode and import the saved `.ef2` using Tasks → Import → From IDM export file. Each video keeps its Referer and browser User-Agent. Regenerate old TXT exports; plain text import may queue referring HTML pages as downloads. Signed links must be imported before they expire; EF2 does not include login cookies.
 
 - By default, the panel appears in the lower right corner of the window. It can be collapsed to a small button and dragged with the mouse.
 
@@ -39,15 +41,21 @@ Github: https://github.com/GitRuozhi/Video-Watch-Archive-Downloader/
  
 ## Update log : 
 
+V5.1 :
+
+- Fixed IDM-related issues: export EF2 with per-video Referer and User-Agent, keep the final CRLF, and refresh old R34 links before export. Failed refreshes retain the page for retry without exporting stale links.
+
+- Officially released Iwara Video Watch Archive Downloader in English and Chinese. See its [introduction](Intro_Iwara.MD) for features and usage.
+
 V4.8 :
 
-- Added IDM export mode: generates URL\tReferer tab-separated TXT files for Internet Download Manager batch import, bypassing anti-hotlink protection.
+- Added the initial URL\tReferer TXT export for IDM, replaced by EF2 in v5.1.
 
 V4.7 :
 
 - Hardened security validation.
 
-- Added an Iwara version; it is not published to SleazyFork yet and can be accessed from GitHub.
+- Added the initial Iwara version.
 
 V4.6 :
 
