@@ -1,6 +1,6 @@
 # Iwara Video Watch Archive Downloader 中文版
 
-![R34 Video Watch Archive Downloader _ ZH](https://raw.githubusercontent.com/GitRuozhi/Video-Watch-Archive-Downloader/master/Intro02_ZH.png)
+![Iwara Video Watch Archive Downloader 中文面板](https://raw.githubusercontent.com/GitRuozhi/Video-Watch-Archive-Downloader/master/Intro_Iwara02.png)
 
 轻量插件。支持 iwara.tv 和 iwara.ai 视频批量下载，观看视频自动归档下载。支持同步下载简介、Tag等作品元信息。支持浏览器直接下载、链接导出、YT-DLP下载命令导出。
 

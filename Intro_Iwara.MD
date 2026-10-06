@@ -1,6 +1,6 @@
 # Iwara Video Watch Archive Downloader
 
-![R34 Video Watch Archive Downloader](https://raw.githubusercontent.com/GitRuozhi/Video-Watch-Archive-Downloader/master/Intro01_EN.png)
+![Iwara Video Watch Archive Downloader panel](https://raw.githubusercontent.com/GitRuozhi/Video-Watch-Archive-Downloader/master/Intro_Iwara01.png)
 
 A lightweight userscript for bulk video downloads from `iwara.tv` and `iwara.ai`. It automatically queues watched videos and can save descriptions, tags, and other metadata. It supports browser downloads, link export, and YT-DLP command export.
 
