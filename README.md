@@ -1,6 +1,6 @@
 # R34 Video Watch Archive Downloader
 
-Tampermonkey userscript for archiving watched videos and batch downloading videos from `rule34video.com`. Iwara Video Watch Archive Downloader is officially released alongside the R34 version. See the [Iwara introduction](Intro_Iwara.MD) for its features and usage.
+Tampermonkey userscript for archiving watched videos and batch downloading videos from `rule34video.com` and `rule34gen.com`. The Iwara version supports `iwara.tv` and `iwara.ai`; see the [Iwara introduction](Intro_Iwara.MD) for its features and usage.
 
 Current source version: **v5.1** for both R34 and Iwara.
 
@@ -72,6 +72,7 @@ A separate Iwara transfer check on 2026-10-06 ran the repository's parser and ex
 
 - Fixed IDM-related issues: export EF2 with per-video Referer and User-Agent, include the final CRLF so every record imports, and refresh old R34 links before export while retaining failed pages for retry.
 - Officially released **Iwara Video Watch Archive Downloader** in English and Chinese, with dedicated introduction documents. Both site scripts now use version 5.1.
+- Added `rule34gen.com` support to the R34 scripts and `iwara.ai` support to the Iwara scripts.
 
 ### v4.8
 

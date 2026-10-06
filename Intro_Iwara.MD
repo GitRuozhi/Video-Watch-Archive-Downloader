@@ -1,34 +1,40 @@
 # Iwara Video Watch Archive Downloader
 
-## Description
+![R34 Video Watch Archive Downloader](https://raw.githubusercontent.com/GitRuozhi/Video-Watch-Archive-Downloader/master/Intro01_EN.png)
 
-A lightweight userscript for collecting and downloading videos from Iwara. It can gather videos from the current list page or across multiple pages, automatically queue watched videos, and export links or download commands.
+A lightweight userscript for bulk video downloads from `iwara.tv` and `iwara.ai`. It automatically queues watched videos and can save descriptions, tags, and other metadata. It supports browser downloads, link export, and YT-DLP command export.
 
 ## Introduction
 
-- Supports Iwara pages on `www.iwara.tv` and `iwara.tv`, including Iwara API and file-source lookup.
+- Supports video downloads from `iwara.tv` and `iwara.ai`.
 
-- Collects video links from the current page or from multiple list pages. Multi-page collection follows the site's page navigation and stops when it reaches the configured page limit or detects wrapped duplicates.
+- Automatically adds watched videos to the queue.
 
-- Can automatically add a watched video to the queue. Optional Auto DL starts downloading or exporting with the selected mode after a video is queued.
+- Maintains English and Chinese versions.
 
-- Supports four methods: Browser download, Links TXT, IDM EF2, and YT-DLP command export.
+- Collects videos from search, uploader, user, favorites, and other list pages.
 
-- Iwara's available quality names include Source, 540, 360, and preview. Best prefers Source, then 540, 360, and preview; if a selected quality is unavailable, the script uses the best available source.
+- Supports four methods: browser download, link export, IDM EF2 import, and YT-DLP command export.
 
-- The Meta option saves an Iwara metadata JSON file before its video download. Export modes can also save collected metadata as a JSONL file. Metadata can include the title, description, tags, uploader, upload date, thumbnail, and file details when available.
+- The panel appears in the lower-right corner. It can be collapsed to a small button and dragged with the mouse.
 
-- Videos that only provide an external embed cannot be downloaded directly by the script; an Iwara media source must be available.
+- Shows download progress while downloading.
 
-- The panel appears in the lower-right corner. It can be collapsed to a small button and dragged with the mouse. The advanced options include Auto queue, Auto DL, Meta, request Threads, the page limit, download Mode, Quality, and filename components.
+- Click [Current] to add all videos shown on the current page to the queue.
 
-- Click **Current** to collect videos from the page currently shown. Click **Pages** to follow page navigation and collect multiple list pages. Click **Start** to download or export using the selected mode. Click **Again** to retry failed downloads, and **Init** to clear the queue and counters without changing settings.
+- Click [Pages] to automatically turn pages and add videos from multiple pages to the queue.
 
-- Browser mode uses the browser's download manager. Depending on the browser, progress may appear only after a download finishes.
+- Click [Start] to download using the selected method. In [Browser] download mode, the browser's downloader may not show progress immediately and may show completion only after the download finishes.
 
-- For IDM, select IDM mode and import the saved `.ef2` file in IDM using **Tasks → Import → From IDM export file**. Each media record includes its Iwara page Referer and browser User-Agent. Import signed links promptly; EF2 does not include login cookies.
+- Click [Again] to reset failed items and start downloading again.
 
-- English and Chinese script versions are available.
+- Supports advanced options.
+
+- For IDM, import the saved `.ef2` file using **Tasks → Import → From IDM export file**. Each video keeps its Referer and browser User-Agent.
+
+- Signed links may expire if unused for a long time; EF2 does not include login cookies.
+
+- When enabled, Meta saves Iwara metadata as JSON before downloading. Export modes also save metadata as JSONL. Available metadata can include the title, description, tags, uploader, upload date, thumbnail, and file information.
 
 GitHub: [Video-Watch-Archive-Downloader](https://github.com/GitRuozhi/Video-Watch-Archive-Downloader/)
 
@@ -36,5 +42,8 @@ GitHub: [Video-Watch-Archive-Downloader](https://github.com/GitRuozhi/Video-Watc
 
 V5.1:
 
-- Fixed IDM-related issues.
-- Official release of Iwara Video Watch Archive Downloader.
+- Fixed IDM-related issues: EF2 keeps each video's Referer and User-Agent and includes the final CRLF. R34 exports refresh old links before export; failed refreshes retain the page for retry without exporting stale links.
+
+- Officially released Iwara Video Watch Archive Downloader.
+
+- Added support for `iwara.ai`.

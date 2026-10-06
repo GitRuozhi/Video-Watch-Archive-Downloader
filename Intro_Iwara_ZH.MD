@@ -2,12 +2,12 @@
 
 ![R34 Video Watch Archive Downloader _ ZH](https://raw.githubusercontent.com/GitRuozhi/Video-Watch-Archive-Downloader/master/Intro02_ZH.png)
 
-轻量插件。 Iwara 视频批量下载，观看视频自动归档下载。支持同步下载简介、Tag等作品元信息。支持浏览器直接下载、链接导出、YT-DLP下载命令导出。
+轻量插件。支持 iwara.tv 和 iwara.ai 视频批量下载，观看视频自动归档下载。支持同步下载简介、Tag等作品元信息。支持浏览器直接下载、链接导出、YT-DLP下载命令导出。
 
 
 ## 介绍
 
-- Iwara 视频批量下载
+- 支持 iwara.tv 和 iwara.ai 视频批量下载。
 
 - 已看视频并自动进入队列。
 
@@ -47,3 +47,5 @@ V5.1：
 - 修复了 IDM 相关问题：EF2 为每条视频保留 Referer 和 User-Agent，补齐末尾 CRLF；R34 导出前刷新旧链接，失败时保留作品页供重试，不再输出旧地址。
 
 - 正式发布 Iwara Video Watch Archive Downloader 。
+
+- 新增 iwara.ai 支持。

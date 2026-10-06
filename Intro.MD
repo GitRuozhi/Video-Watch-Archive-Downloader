@@ -3,13 +3,11 @@
 
 ![R34 Video Watch Archive Downloader](https://raw.githubusercontent.com/GitRuozhi/Video-Watch-Archive-Downloader/master/Intro01_EN.png)
 
-## Description : 
-
-Lightweight plugin. Rule34video video bulk download, watched video automatically archive download. Support synchronous download introduction, Tag and other works meta-information. Support browser direct download, link export, YT-DLP download command export.
+Lightweight plugin. Supports bulk video downloads from rule34video.com and rule34gen.com, and automatically queues watched videos. It can save descriptions, tags, and other metadata. Supports browser downloads, link export, and YT-DLP command export.
  
 ## Introduction : 
 
-- Rule34video video bulk download.
+- Supports video downloads from rule34video.com and rule34gen.com.
 
 - Watched videos automatically enter the queue.
 
@@ -21,21 +19,25 @@ Lightweight plugin. Rule34video video bulk download, watched video automatically
 
 - Supports 4 download methods: browser direct download, link export, IDM EF2 import, and YT-DLP command export.
 
-- For IDM, select IDM mode and import the saved `.ef2` using Tasks → Import → From IDM export file. Each video keeps its Referer and browser User-Agent. Regenerate old TXT exports; plain text import may queue referring HTML pages as downloads. Signed links must be imported before they expire; EF2 does not include login cookies.
-
 - By default, the panel appears in the lower right corner of the window. It can be collapsed to a small button and dragged with the mouse.
 
 - Shows download progress while downloading.
 
 - Click [Current] to add all videos shown on the current page to the queue.
 
-- Click [Multi] to automatically turn pages and add videos from multiple pages to the queue.
+- Click [Pages] to automatically turn pages and add videos from multiple pages to the queue.
 
 - Click [Start] to download with the selected method. When using [Browser] download mode, the browser's own downloader may not show progress immediately and may only show completion after the file finishes.
 
 - Click [Again] to reset failed items and start downloading again.
 
 - Supports advanced options.
+
+- For IDM, import the saved `.ef2` using Tasks → Import → From IDM export file. Each video keeps its Referer and browser User-Agent.
+
+- Signed links may expire if unused for a long time; EF2 does not include login cookies.
+
+- When enabled, Meta saves video metadata as JSON before downloading. Export modes also save metadata as JSONL. Available metadata can include the title, description, tags, uploader, upload date, thumbnail, and file information.
  
 Github: https://github.com/GitRuozhi/Video-Watch-Archive-Downloader/
  
@@ -45,7 +47,9 @@ V5.1 :
 
 - Fixed IDM-related issues: export EF2 with per-video Referer and User-Agent, keep the final CRLF, and refresh old R34 links before export. Failed refreshes retain the page for retry without exporting stale links.
 
-- Officially released Iwara Video Watch Archive Downloader in English and Chinese. See its [introduction](Intro_Iwara.MD) for features and usage.
+- Officially released Iwara Video Watch Archive Downloader.
+
+- Added support for rule34gen.com.
 
 V4.8 :
 

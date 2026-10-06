@@ -1,6 +1,6 @@
 # R34 Video Watch Archive Downloader
 
-用于 `rule34video.com` 的 Tampermonkey 油猴脚本，支持已看视频自动归档、批量采集、导出和下载视频。同步正式发布 **Iwara Video Watch Archive Downloader**，功能及用法见 [Iwara 版本介绍](Intro_Iwara_ZH.MD)。
+用于 `rule34video.com` 和 `rule34gen.com` 的 Tampermonkey 油猴脚本，支持已看视频自动归档、批量采集、导出和下载视频。Iwara 版本支持 `iwara.tv` 和 `iwara.ai`，功能及用法见 [Iwara 版本介绍](Intro_Iwara_ZH.MD)。
 
 当前源码版本：R34 和 Iwara 均为 **v5.1**。
 
@@ -72,6 +72,7 @@ IDM 的[文本导入说明](https://www.internetdownloadmanager.com/support/impo
 
 - 修复了 IDM 相关问题：使用 EF2 保存每条视频的 Referer 和 User-Agent，补齐末尾 CRLF 以完整导入记录；R34 导出前刷新旧链接，失败时保留作品页供重试。
 - 正式发布 **Iwara Video Watch Archive Downloader** 中英文版本，新增独立介绍文档。两个站点的脚本统一使用版本号 5.1。
+- R34 脚本新增 `rule34gen.com` 支持，Iwara 脚本新增 `iwara.ai` 支持。
 
 ### v4.8
 
