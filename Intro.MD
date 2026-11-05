@@ -43,6 +43,10 @@ Github: https://github.com/GitRuozhi/Video-Watch-Archive-Downloader/
  
 ## Update log : 
 
+V5.1.1 :
+
+- Fixed Again to retry resolution failures without media links while retaining the queue.
+
 V5.1 :
 
 - Fixed IDM-related issues: export EF2 with per-video Referer and User-Agent, keep the final CRLF, and refresh old R34 links before export. Failed refreshes retain the page for retry without exporting stale links.

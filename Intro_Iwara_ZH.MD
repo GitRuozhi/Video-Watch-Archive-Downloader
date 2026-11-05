@@ -42,6 +42,12 @@ GitHub：[Video-Watch-Archive-Downloader](https://github.com/GitRuozhi/Video-Wat
 
 ## 更新日志
 
+V5.1.1：
+
+- 修复 YT-DLP 参数转义，按字面值保留反引号。
+- 修复“再来一次”，重新解析没有媒体链接的失败项目。
+- 导出前刷新旧缓存及历史链接；刷新失败时排除旧链接，并保留任务供重试。
+
 V5.1：
 
 - 修复了 IDM 相关问题：EF2 为每条视频保留 Referer 和 User-Agent，补齐末尾 CRLF；R34 导出前刷新旧链接，失败时保留作品页供重试，不再输出旧地址。

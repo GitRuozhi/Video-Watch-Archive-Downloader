@@ -40,6 +40,12 @@ GitHub: [Video-Watch-Archive-Downloader](https://github.com/GitRuozhi/Video-Watc
 
 ## Update log
 
+V5.1.1:
+
+- Fixed YT-DLP argument quoting to preserve backticks literally.
+- Fixed Again to re-resolve failed items without media links.
+- Refresh old and legacy cached links before export; omit stale links when refresh fails and retain the task for retry.
+
 V5.1:
 
 - Fixed IDM-related issues: EF2 keeps each video's Referer and User-Agent and includes the final CRLF. R34 exports refresh old links before export; failed refreshes retain the page for retry without exporting stale links.

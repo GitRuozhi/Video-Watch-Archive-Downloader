@@ -2,7 +2,7 @@
 // @name         R34 Video Watch Archive Downloader
 // @namespace    https://github.com/GitRuozhi
 // @license      MIT
-// @version      5.1
+// @version      5.1.1
 // @description  Rule34video video bulk download, watched video automatically archive download. Support synchronous download introduction, Tag and other works meta-information. Support browser direct download, link export, YT-DLP download command export.
 // @author       GitRuozhi
 // @match        https://rule34video.com/*
@@ -651,7 +651,7 @@
 
   async function runWatchedPageCheck(source) {
     if (!state.settings.autoQueueSingle) return;
-    if (state.exporting) {
+    if (state.exporting || state.fetching) {
       scheduleWatchedPageCheck(source);
       return;
     }
@@ -1630,10 +1630,12 @@
     pumpDownloads();
   }
 
-  function retryFailedDownloads() {
-    if (state.downloading || state.fetching || state.exporting || state.collection.active) return;
+  async function retryFailedDownloads() {
+    if (state.downloading || state.fetching || state.exporting || state.collection.active || state.activeDownloads > 0
+      || state.tasks.some((task) => [STATUS.FETCHING, STATUS.DOWNLOADING].includes(task.status))) return;
     saveSettingsFromUi();
     if (state.settings.exportMode !== EXPORT_MODE.DIRECT) return exportResolvedTasks();
+    const retryUrls = state.tasks.filter((task) => task.status === STATUS.FAILED).map((task) => task.postUrl);
     const retryCount = resetFailedTasksForRetry();
     if (!retryCount) {
       addLog('No failed downloads to retry.');
@@ -1641,8 +1643,16 @@
       return;
     }
     addLog(`Retrying failed downloads: ${retryCount}.`);
+    state.fetching = true;
     persistState();
     updateUi();
+    try {
+      await resolvePendingTasks(retryUrls, true);
+    } finally {
+      state.fetching = false;
+      persistState();
+      updateUi();
+    }
     startDownloads('retry');
   }
 
@@ -1916,8 +1926,8 @@
   function resetFailedTasksForRetry() {
     let count = 0;
     state.tasks.forEach((task) => {
-      if (task.status !== STATUS.FAILED || !task.videoUrl) return;
-      task.status = STATUS.READY;
+      if (task.status !== STATUS.FAILED) return;
+      task.status = task.videoUrl ? STATUS.READY : STATUS.PENDING;
       task.retries = 0;
       task.error = '';
       task.videoDownloadSubmitted = false;
