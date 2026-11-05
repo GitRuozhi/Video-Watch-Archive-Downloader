@@ -34,9 +34,17 @@ Choose **IDM** mode and click **Start** to save an `.ef2` file. In IDM, select *
 
 ## Version 5.2
 
-- Fixed Iwara YT-DLP argument quoting to preserve backticks literally.
-- Fixed Again to re-resolve failed items without media links in both families.
-- Iwara now refreshes old or legacy cached links before export and omits stale links when refresh fails.
+### R34
+
+- Fixed [Again] so items that failed to resolve can be retried without clearing the queue.
+- Fixed duplicate resolution of some items when auto-queuing and retrying occur at the same time.
+
+### Iwara
+
+- Fixed special-character escaping in exported YT-DLP commands.
+- Fixed [Again] so items that failed to resolve can be retried without clearing the queue.
+- Refresh old links before export. If refreshing fails, omit the old URL and retain the item for retry.
+- Fixed duplicate resolution of some items when auto-queuing and retrying occur at the same time.
 
 ## Version 5.1
 

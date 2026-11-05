@@ -45,7 +45,8 @@ Github: https://github.com/GitRuozhi/Video-Watch-Archive-Downloader/
 
 V5.2 :
 
-- Fixed Again to retry resolution failures without media links while retaining the queue.
+- Fixed [Again] so items that failed to resolve can be retried without clearing the queue.
+- Fixed duplicate resolution of some items when auto-queuing and retrying occur at the same time.
 
 V5.1 :
 

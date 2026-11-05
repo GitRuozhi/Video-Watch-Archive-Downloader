@@ -42,9 +42,10 @@ GitHub: [Video-Watch-Archive-Downloader](https://github.com/GitRuozhi/Video-Watc
 
 V5.2:
 
-- Fixed YT-DLP argument quoting to preserve backticks literally.
-- Fixed Again to re-resolve failed items without media links.
-- Refresh old and legacy cached links before export; omit stale links when refresh fails and retain the task for retry.
+- Fixed special-character escaping in exported YT-DLP commands.
+- Fixed [Again] so items that failed to resolve can be retried without clearing the queue.
+- Refresh old links before export. If refreshing fails, omit the old URL and retain the item for retry.
+- Fixed duplicate resolution of some items when auto-queuing and retrying occur at the same time.
 
 V5.1:
 
