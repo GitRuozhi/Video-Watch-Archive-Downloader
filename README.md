@@ -2,7 +2,7 @@
 
 [简体中文](README_ZH.md)
 
-Two independent Tampermonkey userscript families are available. R34 supports `rule34video.com` and `rule34gen.com`. Iwara supports `iwara.tv` and `iwara.ai`. Both families are at version **5.1.1**, with English and Chinese scripts.
+Two independent Tampermonkey userscript families are available. R34 supports `rule34video.com` and `rule34gen.com`. Iwara supports `iwara.tv` and `iwara.ai`. Both families are at version **5.2**, with English and Chinese scripts.
 
 | Family | Supported sites | English | 中文 |
 | --- | --- | --- | --- |
@@ -32,7 +32,7 @@ Install the script for the site and language you want. On a supported site, use 
 
 Choose **IDM** mode and click **Start** to save an `.ef2` file. In IDM, select **Tasks → Import → From IDM export file**. Each video record includes its page Referer and browser User-Agent. EF2 does not include browser login cookies. Signed video links can expire, so import the file promptly. Both families refresh old or unresolved links before export and omit links whose refresh fails.
 
-## Version 5.1.1
+## Version 5.2
 
 - Fixed Iwara YT-DLP argument quoting to preserve backticks literally.
 - Fixed Again to re-resolve failed items without media links in both families.

@@ -2,7 +2,7 @@
 // @name         Iwara Video Watch Archive Downloader _ ZH
 // @namespace    https://github.com/GitRuozhi
 // @license      MIT
-// @version      5.1.1
+// @version      5.2
 // @description  Iwara 视频批量下载，观看视频自动归档下载。支持同步下载简介、Tag等作品元信息。支持浏览器直接下载、链接导出、YT-DLP下载命令导出。
 // @author       GitRuozhi
 // @match        https://www.iwara.tv/*
@@ -136,7 +136,7 @@
   "sizeGB": "GB",
   "etaUnknown": "--"
 };
-  const SCRIPT_VERSION = '5.1.1';
+  const SCRIPT_VERSION = '5.2';
   const STORE_KEY = 'iwara_video_watch_archive_downloader_state_v1';
   const SETTINGS_KEY = 'iwara_video_watch_archive_downloader_settings_v1';
   const PANEL_ID = 'iwara-watch-archive-downloader-panel';

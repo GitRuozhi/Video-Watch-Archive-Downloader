@@ -42,7 +42,7 @@ Github: https://github.com/GitRuozhi/Video-Watch-Archive-Downloader/
 
 ## 更新日志：
 
-V5.1.1
+V5.2
 
 - 修复“再来一次”，在保留队列的同时重新解析没有媒体链接的失败项目。
 

@@ -40,7 +40,7 @@ GitHub: [Video-Watch-Archive-Downloader](https://github.com/GitRuozhi/Video-Watc
 
 ## Update log
 
-V5.1.1:
+V5.2:
 
 - Fixed YT-DLP argument quoting to preserve backticks literally.
 - Fixed Again to re-resolve failed items without media links.

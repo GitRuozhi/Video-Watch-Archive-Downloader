@@ -2,7 +2,7 @@
 // @name         Iwara Video Watch Archive Downloader
 // @namespace    https://github.com/GitRuozhi
 // @license      MIT
-// @version      5.1.1
+// @version      5.2
 // @description  Iwara video bulk download, watched video automatically archive download. Support synchronous download introduction, Tag and other works meta-information. Support browser direct download, link export, YT-DLP download command export.
 // @author       GitRuozhi
 // @match        https://www.iwara.tv/*
@@ -136,7 +136,7 @@
   "sizeGB": "GB",
   "etaUnknown": "--"
 };
-  const SCRIPT_VERSION = '5.1.1';
+  const SCRIPT_VERSION = '5.2';
   const STORE_KEY = 'iwara_video_watch_archive_downloader_state_v1';
   const SETTINGS_KEY = 'iwara_video_watch_archive_downloader_settings_v1';
   const PANEL_ID = 'iwara-watch-archive-downloader-panel';

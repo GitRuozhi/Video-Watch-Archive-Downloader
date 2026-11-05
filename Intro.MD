@@ -43,7 +43,7 @@ Github: https://github.com/GitRuozhi/Video-Watch-Archive-Downloader/
  
 ## Update log : 
 
-V5.1.1 :
+V5.2 :
 
 - Fixed Again to retry resolution failures without media links while retaining the queue.
 

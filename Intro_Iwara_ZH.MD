@@ -42,7 +42,7 @@ GitHub：[Video-Watch-Archive-Downloader](https://github.com/GitRuozhi/Video-Wat
 
 ## 更新日志
 
-V5.1.1：
+V5.2：
 
 - 修复 YT-DLP 参数转义，按字面值保留反引号。
 - 修复“再来一次”，重新解析没有媒体链接的失败项目。

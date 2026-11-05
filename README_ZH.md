@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-本项目提供两个独立的 Tampermonkey 油猴脚本系列。R34 支持 `rule34video.com` 和 `rule34gen.com`；Iwara 支持 `iwara.tv` 和 `iwara.ai`。两个系列目前均为 **5.1.1**，提供英文和中文脚本。
+本项目提供两个独立的 Tampermonkey 油猴脚本系列。R34 支持 `rule34video.com` 和 `rule34gen.com`；Iwara 支持 `iwara.tv` 和 `iwara.ai`。两个系列目前均为 **5.2**，提供英文和中文脚本。
 
 | 系列 | 支持站点 | English | 中文 |
 | --- | --- | --- | --- |
@@ -32,7 +32,7 @@
 
 选择 **IDM** 模式并点击**开始下载**，保存 `.ef2` 文件。在 IDM 中选择**任务 → 导入 → 从 IDM 导出文件**。每条视频记录都包含作品页 Referer 和浏览器 User-Agent。EF2 不包含浏览器登录 Cookie。签名视频链接可能过期，请及时导入。两个系列导出前都会刷新较旧或未解析的链接，刷新失败的链接不会写入导出文件。
 
-## 5.1.1 版本修复
+## 5.2 版本修复
 
 - 修复 Iwara 的 YT-DLP 参数转义，按字面值保留反引号。
 - 修复两个系列的重试入口，重新解析没有媒体链接的失败项目。

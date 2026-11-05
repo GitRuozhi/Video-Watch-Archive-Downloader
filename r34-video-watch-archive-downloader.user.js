@@ -2,7 +2,7 @@
 // @name         R34 Video Watch Archive Downloader
 // @namespace    https://github.com/GitRuozhi
 // @license      MIT
-// @version      5.1.1
+// @version      5.2
 // @description  Rule34video video bulk download, watched video automatically archive download. Support synchronous download introduction, Tag and other works meta-information. Support browser direct download, link export, YT-DLP download command export.
 // @author       GitRuozhi
 // @match        https://rule34video.com/*
